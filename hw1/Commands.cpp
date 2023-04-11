@@ -92,7 +92,7 @@ SmallShell::~SmallShell() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
 	// For example:
-/*
+
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
@@ -102,12 +102,13 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   else if (firstWord.compare("showpid") == 0) {
     return new ShowPidCommand(cmd_line);
   }
-  else if ...
-  .....
+  else if(firstWord.compare("chprompt") == 0) {
+    return new chpromptCommand(cmd_line);
+  }
   else {
     return new ExternalCommand(cmd_line);
   }
-  */
+  
   return nullptr;
 }
 
@@ -118,3 +119,33 @@ void SmallShell::executeCommand(const char *cmd_line) {
   // cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
+
+//---------------------------Command class----------------------------//
+
+Command::Command(const char* cmd_line){
+  this->args_length = _parseCommandLine(cmd_line, this->args);
+}
+
+//-----------------------BuitInCommands----------------------//
+
+//---------------------------1--------------------------------//
+
+chpromptCommand::chpromptCommand(const char *cmd_line) : BuiltInCommand(cmd_line){
+}
+
+void chpromptCommand::execute(){
+  //change smash
+  SmallShell& smash = SmallShell::getInstance();
+  if(this->getArgs_length() == 1){
+    smash.setShellName("smash");
+  } else{
+    char ** _args = this->getArgs();
+    smash.setShellName(_args[1]);
+  }
+}
+
+
+//--------------------------BuiltInCommand class--------//
+  BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line){
+
+  }

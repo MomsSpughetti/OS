@@ -12,9 +12,22 @@ class Command {
   Command(const char* cmd_line);
   virtual ~Command();
   virtual void execute() = 0;
-  //virtual void prepare();
+  virtual void prepare();
   //virtual void cleanup();
   // TODO: Add your extra methods if needed
+
+  //------getters and setters------------//
+  char ** getArgs() const;
+  void setArgs(const std::string & val);
+
+  int getArgs_length() const;
+  void setArgs_length(int val);
+
+  //members
+  private:
+    char ** args; //max length of 20
+    int args_length;
+    
 };
 
 class BuiltInCommand : public Command {
@@ -164,10 +177,20 @@ class KillCommand : public BuiltInCommand {
   void execute() override;
 };
 
+class chpromptCommand : public BuiltInCommand {
+  public:
+    chpromptCommand(const char* cmd_line);
+    chpromptCommand();
+    virtual ~chpromptCommand() {}
+    void execute() override;
+};
+
 class SmallShell {
  private:
   // TODO: Add your data members
   SmallShell();
+  std::string ShellName;
+
  public:
   Command *CreateCommand(const char* cmd_line);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
@@ -181,6 +204,17 @@ class SmallShell {
   ~SmallShell();
   void executeCommand(const char* cmd_line);
   // TODO: add extra methods as needed
+
+//--------------------------getters and setters -----------------------//
+
+  std::string getShellName() const{
+    return this->ShellName;
+  }
+
+  void setShellName(const std::string & val){
+    this->ShellName = val;
+  }
+
 };
 
 #endif //SMASH_COMMAND_H_
