@@ -117,6 +117,7 @@ void ChangeDirCommand::execute(){
     chdir(args[1]);
   }
   smash.setCd();
+  smash.setLastDir(pwd);
 }
 
 void GetCurrDirCommand::execute(){
