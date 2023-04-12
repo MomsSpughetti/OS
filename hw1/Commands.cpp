@@ -79,73 +79,92 @@ void _removeBackgroundSign(char* cmd_line) {
 
 // TODO: Add your implementation for classes in Commands.h 
 
-SmallShell::SmallShell() {
-// TODO: add your implementation
+
+
+/****************Built-in exec implemntaions****************/
+
+void ChPromptCommand::execute(){
+  std::string cmdLine = getCmdLine().c_str();
+  char* args[COMMAND_MAX_ARGS];
+  _parseCommandLine(cmdLine.c_str(),args);
+  SmallShell* instance = &SmallShell::getInstance();
+  instance->setName(args[1]);
+  //no error handling required
 }
 
-SmallShell::~SmallShell() {
-// TODO: add your implementation
+void ChangeDirCommand::execute(){
+  std::string cmdLine = getCmdLine();
+  std::cout<<cmdLine<<std::endl;
+  char* args[COMMAND_MAX_ARGS];
+  int cmdLen = _parseCommandLine(cmdLine.c_str(),args);
+  if(cmdLen > 2){
+    printf("smash error: cd: too many arguments\n");
+    return;
+  }
+  SmallShell& smash = SmallShell::getInstance();
+  char buffer[COMMAND_ARGS_MAX_LENGTH];
+  char* pwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  if(strcmp(args[1],"-") == 0){//go to the last pwd.
+    if(smash.isCd()){
+      chdir(smash.getLastDir().c_str());
+      smash.setLastDir(pwd);
+    }
+    else{
+      printf("smash error: cd: OLDPWD not set");
+      return;
+    }
+  }else{
+    chdir(args[1]);
+  }
+  smash.setCd();
+}
+
+void GetCurrDirCommand::execute(){
+  char buffer[COMMAND_ARGS_MAX_LENGTH];
+  char* cwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  printf("%s\n",cwd);
+}
+
+SmallShell::SmallShell() : shellName("smash") , calledCd(false){
+  char buffer[COMMAND_ARGS_MAX_LENGTH];
+  char* cwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  lastDir = std::string(cwd);
 }
 
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
-	// For example:
 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
-
+  //char* cmd_line_built= " ";
+  //strcpy(cmd_line_built,cmd_line);
+ // _removeBackgroundSign(cmd_line_built);
+  if (firstWord.compare("showpid") == 0) {
+    return new ShowPidCommand(cmd_line);
+  }
   if (firstWord.compare("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line);
   }
-  else if (firstWord.compare("showpid") == 0) {
-    return new ShowPidCommand(cmd_line);
+  if (firstWord.compare("chprompt") == 0) {
+    return new ChPromptCommand(cmd_line);
   }
-  else if(firstWord.compare("chprompt") == 0) {
-    return new chpromptCommand(cmd_line);
+  if (firstWord.compare("cd") == 0) {
+    char buffer[COMMAND_ARGS_MAX_LENGTH];
+    return new ChangeDirCommand(cmd_line,new char*(getcwd(buffer,COMMAND_ARGS_MAX_LENGTH)));
   }
-  else {
-    return new ExternalCommand(cmd_line);
-  }
-  
+
   return nullptr;
 }
 
 void SmallShell::executeCommand(const char *cmd_line) {
   // TODO: Add your implementation here
   // for example:
-  // Command* cmd = CreateCommand(cmd_line);
-  // cmd->execute();
+  Command* cmd = CreateCommand(cmd_line);
+  if(cmd != nullptr){
+    cmd->execute();
+  }
+  delete cmd;
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
-
-//---------------------------Command class----------------------------//
-
-Command::Command(const char* cmd_line){
-  this->args_length = _parseCommandLine(cmd_line, this->args);
-}
-
-//-----------------------BuitInCommands----------------------//
-
-//---------------------------1--------------------------------//
-
-chpromptCommand::chpromptCommand(const char *cmd_line) : BuiltInCommand(cmd_line){
-}
-
-void chpromptCommand::execute(){
-  //change smash
-  SmallShell& smash = SmallShell::getInstance();
-  if(this->getArgs_length() == 1){
-    smash.setShellName("smash");
-  } else{
-    char ** _args = this->getArgs();
-    smash.setShellName(_args[1]);
-  }
-}
-
-
-//--------------------------BuiltInCommand class--------//
-  BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line){
-
-  }

@@ -2,38 +2,27 @@
 #define SMASH_COMMAND_H_
 
 #include <vector>
-
+#include <string>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 
 class Command {
-// TODO: Add your data members
+  std::string cmdLine;
+ protected:
+  std::string getCmdLine() const{return cmdLine;} 
  public:
-  Command(const char* cmd_line);
-  virtual ~Command();
+  Command(const char* cmd_line) : cmdLine(std::string(cmd_line)) {}
+  virtual ~Command() = default;
   virtual void execute() = 0;
-  virtual void prepare();
+  //virtual void prepare();
   //virtual void cleanup();
   // TODO: Add your extra methods if needed
-
-  //------getters and setters------------//
-  char ** getArgs() const;
-  void setArgs(const std::string & val);
-
-  int getArgs_length() const;
-  void setArgs_length(int val);
-
-  //members
-  private:
-    char ** args; //max length of 20
-    int args_length;
-    
 };
 
 class BuiltInCommand : public Command {
  public:
-  BuiltInCommand(const char* cmd_line);
-  virtual ~BuiltInCommand() {}
+  BuiltInCommand(const char* cmd_line): Command(cmd_line){}
+  virtual ~BuiltInCommand() = default;
 };
 
 class ExternalCommand : public Command {
@@ -61,25 +50,36 @@ class RedirectionCommand : public Command {
   //void cleanup() override;
 };
 
+class ChPromptCommand : public BuiltInCommand{
+  public:
+  ChPromptCommand(const char* cmd_line)
+   : BuiltInCommand(cmd_line){}
+  void execute() override;
+};
+
 class ChangeDirCommand : public BuiltInCommand {
-// TODO: Add your data members public:
-  ChangeDirCommand(const char* cmd_line, char** plastPwd);
-  virtual ~ChangeDirCommand() {}
+  char** lastPwd;
+public:
+  ChangeDirCommand(const char* cmd_line, char** plastPwd)
+   : BuiltInCommand(cmd_line), lastPwd(plastPwd){}
+  virtual ~ChangeDirCommand() {
+    free(lastPwd);
+  }
   void execute() override;
 };
 
 class GetCurrDirCommand : public BuiltInCommand {
  public:
-  GetCurrDirCommand(const char* cmd_line);
-  virtual ~GetCurrDirCommand() {}
+  GetCurrDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
+  virtual ~GetCurrDirCommand() = default;
   void execute() override;
 };
 
 class ShowPidCommand : public BuiltInCommand {
  public:
-  ShowPidCommand(const char* cmd_line);
-  virtual ~ShowPidCommand() {}
-  void execute() override;
+  ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
+  virtual ~ShowPidCommand() = default;
+  void execute() override{printf("smash pid is %d\n",getpid());}
 };
 
 class JobsList;
@@ -177,21 +177,15 @@ class KillCommand : public BuiltInCommand {
   void execute() override;
 };
 
-class chpromptCommand : public BuiltInCommand {
-  public:
-    chpromptCommand(const char* cmd_line);
-    chpromptCommand();
-    virtual ~chpromptCommand() {}
-    void execute() override;
-};
-
 class SmallShell {
  private:
-  // TODO: Add your data members
+  std::string shellName;
+  std::string lastDir;
+  bool calledCd;
   SmallShell();
-  std::string ShellName;
-
  public:
+  std::string getName() const{return shellName;}
+  void setName(const std::string& newName){shellName = newName;}
   Command *CreateCommand(const char* cmd_line);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
   void operator=(SmallShell const&)  = delete; // disable = operator
@@ -201,20 +195,13 @@ class SmallShell {
     // Instantiated on first use.
     return instance;
   }
-  ~SmallShell();
+  ~SmallShell() = default;
   void executeCommand(const char* cmd_line);
   // TODO: add extra methods as needed
-
-//--------------------------getters and setters -----------------------//
-
-  std::string getShellName() const{
-    return this->ShellName;
-  }
-
-  void setShellName(const std::string & val){
-    this->ShellName = val;
-  }
-
+  bool isCd() const{return calledCd;}
+  void setCd(){calledCd=true;}
+  std::string getLastDir() const{return lastDir;}
+  void setLastDir(const std::string& lastDir){this->lastDir = lastDir;}
 };
 
 #endif //SMASH_COMMAND_H_
