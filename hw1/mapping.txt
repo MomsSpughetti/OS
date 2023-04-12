@@ -1,0 +1,25 @@
+jobs list:
+	add vector to smash
+	add process to vector if:
+		process is stopped using ctrl+z
+		process is a background process (only external)
+jobs command:
+	print the vector ordered by job-id
+Note: before any operation - delete the finished jobs from vector!
+
+questions:
+	Q: where to add the jobs vector?
+	A: in smash class
+	Q: when to use fork other than in external commands?
+	A: ?
+	Q: how to pass signal to the current process (signals are sent to 'main' process)?
+	A: ?
+	Q: how to print vector in order?
+	A: ?
+	Q: when and where to delete finished jobs?
+	A: finished jobs should be deleted in every while loop in main function
+	Q: what should the vector contain?
+	A: job objects (provided)
+
+	
+		

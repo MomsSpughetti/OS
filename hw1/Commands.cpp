@@ -105,6 +105,24 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   else if(firstWord.compare("chprompt") == 0) {
     return new chpromptCommand(cmd_line);
   }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
+  else if (firstWord.compare("pwd") == 0){
+    return new GetCurrDirCommand(cmd_line);
+  }
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -123,6 +141,16 @@ void SmallShell::executeCommand(const char *cmd_line) {
 //---------------------------Command class----------------------------//
 
 Command::Command(const char* cmd_line){
+  try
+  {
+    args = new char*[COMMAND_MAX_ARGS];
+  }
+  catch(const std::exception& e)
+  {
+    //std::cerr << e.what() << '\n';
+    throw;
+  }
+  
   this->args_length = _parseCommandLine(cmd_line, this->args);
 }
 
@@ -144,8 +172,94 @@ void chpromptCommand::execute(){
   }
 }
 
+//---------------------------3------------------------------//
+GetCurrDirCommand::GetCurrDirCommand(const char * cmd_line) : BuiltInCommand(cmd_line){
+}
+
+void GetCurrDirCommand::execute(){
+  char * dir = getcwd(nullptr, 0);
+  std::cout << dir;
+}
 
 //--------------------------BuiltInCommand class--------//
   BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line){
 
   }
+
+//------------------------jobsList class implementation---------------------------//
+
+//------------JobEntry-----------------------------
+JobsList::JobEntry::JobEntry(int PID, Command *cmd, bool isStopped){
+
+}
+
+//-------------------------------------------------
+
+JobsList::JobsList() = default;
+JobsList::~JobsList() = default;
+
+void JobsList::addJob(Command *cmd, bool isStopped = false){
+  int PID = 0;
+  this->getLastJob(&PID);
+
+  JobEntry *je = new JobEntry(PID + 1, cmd, isStopped);
+}
+
+void JobsList::printJobsList(){
+
+}
+void JobsList::killAllJobs(){
+  SmallShell & smash = SmallShell::getInstance();
+
+  for(auto &i : jobs){
+    //kill i (send sigkill to the process)
+  }
+}
+
+bool JobsList::JobEntry::getisStopped() const{
+  return isStopped;
+}
+
+void JobsList::JobEntry::setIsStopped(bool vl){
+  this->isStopped = vl;
+}
+
+bool isFinished(const JobsList::JobEntry& obj){
+  return obj.getisStopped();
+}
+
+void JobsList::removeFinishedJobs(){
+    jobs.remove_if(isFinished);
+}
+
+JobsList::JobEntry * JobsList::getJobById(int jobId){
+  for(auto & i : jobs){
+    if (i.getPID() == jobId){
+      return &i;
+    }
+  }
+}
+
+void JobsList::removeJobById(int jobId){
+  for (std::list<JobEntry>::iterator it = jobs.begin(); it != jobs.end(); ++it){
+    if(it->getPID() == jobId){
+      jobs.erase(it);
+      return;
+    }
+}
+}
+
+JobsList::JobEntry * JobsList::getLastJob(int* lastJobId){
+  JobEntry je = jobs.back();
+  *lastJobId = je.getPID();
+  return &je;
+}
+
+JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId){
+  for (std::list<JobEntry>::reverse_iterator it = jobs.rbegin(); it != jobs.rend(); ++it){
+    if(it->getisStopped() == true){
+      *jobId = it->getPID();
+      return &(*it);
+    }
+
+}

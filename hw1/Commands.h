@@ -2,6 +2,7 @@
 #define SMASH_COMMAND_H_
 
 #include <vector>
+#include <list>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -96,8 +97,21 @@ class JobsList {
  public:
   class JobEntry {
    // TODO: Add your data members
+   public:
+    JobEntry(int PID, Command *cmd, bool isStopped);
+    bool getisStopped() const;
+    void setIsStopped(bool vl);
+    int getPID();
+
+   private:
+    int PID;
+    Command *cmd;
+    bool isStopped;
   };
  // TODO: Add your data members
+ private:
+  list<JobEntry> jobs;
+
  public:
   JobsList();
   ~JobsList();
@@ -110,6 +124,7 @@ class JobsList {
   JobEntry * getLastJob(int* lastJobId);
   JobEntry *getLastStoppedJob(int *jobId);
   // TODO: Add extra methods or modify exisitng ones as needed
+
 };
 
 class JobsCommand : public BuiltInCommand {
@@ -190,6 +205,7 @@ class SmallShell {
   // TODO: Add your data members
   SmallShell();
   std::string ShellName;
+  JobsList jobs;
 
  public:
   Command *CreateCommand(const char* cmd_line);
