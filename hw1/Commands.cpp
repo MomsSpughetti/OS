@@ -94,7 +94,6 @@ void ChPromptCommand::execute(){
 
 void ChangeDirCommand::execute(){
   std::string cmdLine = getCmdLine();
-  std::cout<<cmdLine<<std::endl;
   char* args[COMMAND_MAX_ARGS];
   int cmdLen = _parseCommandLine(cmdLine.c_str(),args);
   if(cmdLen > 2){
@@ -105,19 +104,20 @@ void ChangeDirCommand::execute(){
   char buffer[COMMAND_ARGS_MAX_LENGTH];
   char* pwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
   if(strcmp(args[1],"-") == 0){//go to the last pwd.
-    if(smash.isCd()){
-      chdir(smash.getLastDir().c_str());
-      smash.setLastDir(pwd);
-    }
-    else{
+    if(smash.noDirHistory()){
       printf("smash error: cd: OLDPWD not set");
       return;
     }
-  }else{
-    chdir(args[1]);
+    else{
+      chdir(smash.getLastDir().c_str());
+      smash.rmLastDir();
+      return;
+    }
   }
-  smash.setCd();
-  smash.setLastDir(pwd);
+  else{
+    chdir(args[1]);
+    smash.recordDir(std::string(pwd));
+  }
 }
 
 void GetCurrDirCommand::execute(){
@@ -126,10 +126,10 @@ void GetCurrDirCommand::execute(){
   printf("%s\n",cwd);
 }
 
-SmallShell::SmallShell() : shellName("smash") , calledCd(false){
+SmallShell::SmallShell() : shellName("smash"),dirHistory(), calledCd(false){
   char buffer[COMMAND_ARGS_MAX_LENGTH];
   char* cwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
-  lastDir = std::string(cwd);
+  dirHistory.push(std::string(cwd));
 }
 
 /**
@@ -139,21 +139,23 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
-  //char* cmd_line_built= " ";
-  //strcpy(cmd_line_built,cmd_line);
- // _removeBackgroundSign(cmd_line_built);
-  if (firstWord.compare("showpid") == 0) {
-    return new ShowPidCommand(cmd_line);
+  char builtInCmdLine[strlen(cmd_line)+1];
+  builtInCmdLine[strlen(cmd_line)] = NULL;
+  strcpy(builtInCmdLine,cmd_line);
+  _removeBackgroundSign(builtInCmdLine);
+  if (firstWord.compare("showpid") == 0) 
+  {
+    return new ShowPidCommand(builtInCmdLine);
   }
   if (firstWord.compare("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+    return new GetCurrDirCommand(builtInCmdLine);
   }
   if (firstWord.compare("chprompt") == 0) {
-    return new ChPromptCommand(cmd_line);
+    return new ChPromptCommand(builtInCmdLine);
   }
   if (firstWord.compare("cd") == 0) {
     char buffer[COMMAND_ARGS_MAX_LENGTH];
-    return new ChangeDirCommand(cmd_line,new char*(getcwd(buffer,COMMAND_ARGS_MAX_LENGTH)));
+    return new ChangeDirCommand(builtInCmdLine,new char*(getcwd(buffer,COMMAND_ARGS_MAX_LENGTH)));
   }
 
   return nullptr;

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <stack>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 
@@ -180,7 +181,7 @@ class KillCommand : public BuiltInCommand {
 class SmallShell {
  private:
   std::string shellName;
-  std::string lastDir;
+  std::stack<std::string> dirHistory;
   bool calledCd;
   SmallShell();
  public:
@@ -198,10 +199,12 @@ class SmallShell {
   ~SmallShell() = default;
   void executeCommand(const char* cmd_line);
   // TODO: add extra methods as needed
-  bool isCd() const{return calledCd;}
-  void setCd(){calledCd=true;}
-  std::string getLastDir() const{return lastDir;}
-  void setLastDir(const std::string& lastDir){this->lastDir = lastDir;}
+
+  /**********CD-Functions***********/
+  std::string getLastDir() const {return dirHistory.top();}
+  void recordDir(const std::string& lastDir){dirHistory.push(lastDir);}
+  void rmLastDir(){dirHistory.pop();}
+  bool noDirHistory() const{return dirHistory.empty();}
 };
 
 #endif //SMASH_COMMAND_H_
