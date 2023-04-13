@@ -21,5 +21,14 @@ questions:
 	Q: what should the vector contain?
 	A: job objects (provided)
 
+notes to M1:
+	deleteing finished jobs should be done before moving to next loop (in main).
+	shouldn't PID be a data member of command class? and from where PID value is set?
+	why calling je->run() after 'kill(targetPID, SIGCONT)' (in backgroundCommand::execute())? shouldn't that be in handler code?
+	should add the print line if succeeded in kill command execute().
+
+To add:
+	data member for smallShell class: 'Command *CurrCommand'. Then we can do whatever we want to the foreground process when main gets a signal!
+	
 	
 		
