@@ -6,11 +6,11 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
-
+#include <exception>
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
-
+#define UNINITIALIZED -1;
 #if 0
 #define FUNC_ENTRY()  \
   cout << __PRETTY_FUNCTION__ << " --> " << endl;
@@ -170,7 +170,7 @@ void BackgroundCommand::execute(){
       return;
     }
     if(!je->stopped()){
-      std::cout<<"ssmash error: bg: job-id"<< args[1]<<"is already running in the background"<<std::endl;
+      std::cout<<"smash error: bg: job-id"<< args[1]<<"is already running in the background"<<std::endl;
     }
   }
   if(argsNum ==1){
@@ -199,10 +199,48 @@ void QuitCommand::execute(){
   jobsPtr->quit();
 }
 
+static bool isNum(const std::string& str){
+    for(auto& c : str){
+      if(c< '0' || c > '9'){
+        return false;
+      }
+    }
+  return true;
+}
+
+void KillCommand::execute(){
+  char* args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
+  if(argsNum != 3 || args[1][1] != '-' ||!isNum(args[1])||!isNum(args[2])){
+    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+  }
+  std::string sigStr = args[1];
+  int sigNum = UNINITIALIZED;
+  int JID = UNINITIALIZED;
+  
+  try{
+    sigNum = std::stoi(sigStr.substr(1,sigStr.size()));
+    JID = std::stoi(args[2]);
+  }catch(const std::out_of_range&){
+    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+    return;
+  }
+  if(sigNum > 31 || sigNum <0 || JID == -1){
+    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+    return;
+  }
+  JobsList::JobEntry* je = jobsPtr->getJobById(JID);
+  if(je == nullptr){
+    std::cout<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
+    return;
+  }
+  kill(je->getPID(),sigNum);
+}
+
 
 /********Jops********/
 int JobsList::findMaxJID() const{
-  int max = -1;
+  int max = UNINITIALIZED;
   for(auto& job : jobs){
     if(job->getJID() > max){
       max = job->getJID();
@@ -218,9 +256,7 @@ void JobsList::addJob(Command *cmd,int PID, bool isStopped){
   jobs.push_back(new JobEntry(JID,PID,cmd,isStopped));
 }
 
-bool finished(const JobsList::JobEntry* job){
-  return job->stopped();
-}
+
 
 void JobsList::printJobsList(){
   removeFinishedJobs();
@@ -244,6 +280,9 @@ void JobsList::printForQuit(){
   }
 }
 
+static bool finished(const JobsList::JobEntry* job){
+  return job->stopped();
+}
 
 void JobsList::removeFinishedJobs(){
     jobs.remove_if(finished);
@@ -330,6 +369,18 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   if (firstWord.compare("cd") == 0) {
     return new ChangeDirCommand(builtInCmdLine);
+  }
+  if (firstWord.compare("fg") == 0) {
+    return new ForegroundCommand(builtInCmdLine,&jobs);
+  }
+  if (firstWord.compare("bg") == 0) {
+    return new BackgroundCommand(builtInCmdLine,&jobs);
+  }
+  if (firstWord.compare("quit") == 0) {
+    return new QuitCommand(builtInCmdLine,&jobs);
+  }
+  if (firstWord.compare("kill") == 0) {
+    return new QuitCommand(builtInCmdLine,&jobs);
   }
   return nullptr;
 }
