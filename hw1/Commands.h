@@ -7,8 +7,7 @@
 #include <string>
 #include <stack>
 #include <list>
-
-
+#include <time.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -86,8 +85,6 @@ class ShowPidCommand : public BuiltInCommand {
 };
 
 
-
-
 class JobsList {
  public:
   class JobEntry {
@@ -97,6 +94,7 @@ class JobsList {
     Command *cmd;
     bool isStopped;
     friend class JobsList;
+    time_t startingTime;
    public:
     JobEntry(int JID,int PID, Command *cmd, bool isStopped)
      : JID(JID),PID(PID),cmd(cmd),isStopped(isStopped){}
@@ -106,6 +104,7 @@ class JobsList {
     void stop(){isStopped = true;}
     int getJID() const{return JID;}
     int getPID() const{return PID;}
+    void startTimer(){ startingTime = time(nullptr);}
     Command* getCmd() const {return cmd;}
   };
  // TODO: Add your data members
@@ -209,12 +208,20 @@ class KillCommand : public BuiltInCommand {
   void execute() override;
 };
 
+class JobCommand : public BuiltInCommand{
+  JobsList* jobsPtr;
+ public:
+  JobCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobsPtr(jobs){}
+  virtual ~JobCommand() = default;
+  void execute() override;
+};
+
 class SmallShell {
  private:
   std::string shellName;
   std::stack<std::string> dirHistory;
   JobsList jobs;
-  SmallShell();
+  SmallShell() : shellName("smash"),dirHistory(),jobs(){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}

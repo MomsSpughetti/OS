@@ -199,6 +199,10 @@ void QuitCommand::execute(){
   jobsPtr->quit();
 }
 
+void JobCommand::execute(){
+  jobsPtr->printJobsList();
+}
+
 static bool isNum(const std::string& str){
     for(auto& c : str){
       if(c< '0' || c > '9'){
@@ -238,7 +242,7 @@ void KillCommand::execute(){
 }
 
 
-/********Jops********/
+/****************************Jobs****************************/
 int JobsList::findMaxJID() const{
   int max = UNINITIALIZED;
   for(auto& job : jobs){
@@ -249,23 +253,23 @@ int JobsList::findMaxJID() const{
   return max;
 }
 
-
 void JobsList::addJob(Command *cmd,int PID, bool isStopped){
   int JID = (jobs.size() == 0) ? 1 : maxJID+1;
   maxJID=JID;
-  jobs.push_back(new JobEntry(JID,PID,cmd,isStopped));
+  JobEntry* je = new JobEntry(JID,PID,cmd,isStopped);
+  jobs.push_back(je);
+  je->startTimer();
 }
-
-
 
 void JobsList::printJobsList(){
   removeFinishedJobs();
   for(auto& job : jobs){
+
       std::cout<<"["<<job->getJID()<<"]"<<" ";
       std::cout<<job->cmd->getCmdLine()<<" ";
       std::cout<<":"<<" ";
       std::cout<<job->getPID()<<" ";
-      //TODO: add time elapsed.
+      std::cout<<difftime(time(nullptr),job->startingTime);
       if(job->stopped()){
         std::cout<<"(stopped)";
       }
@@ -297,7 +301,6 @@ JobsList::JobEntry* JobsList::getJobById(int JID){
   return nullptr;
 }
 
-
 void JobsList::quit(){
   while(!jobs.empty()){
       delete jobs.back();
@@ -317,7 +320,6 @@ void JobsList::removeJobById(int JID){
     }
   } 
 }
-
 
 void JobsList::killAllJobs(){
   for(auto &job : jobs){
@@ -342,7 +344,6 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *JIDptr){
 }
 
 
-SmallShell::SmallShell() : shellName("smash"),dirHistory(){}
 
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
@@ -360,8 +361,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
   }
-  if (firstWord.compare("showpid") == 0) 
-  {
+  if (firstWord.compare("showpid") == 0) {
     return new ShowPidCommand(builtInCmdLine);
   }
   if (firstWord.compare("pwd") == 0) {
@@ -369,6 +369,9 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   if (firstWord.compare("cd") == 0) {
     return new ChangeDirCommand(builtInCmdLine);
+  }
+  if (firstWord.compare("job") == 0) {
+    return new QuitCommand(builtInCmdLine,&jobs);
   }
   if (firstWord.compare("fg") == 0) {
     return new ForegroundCommand(builtInCmdLine,&jobs);
