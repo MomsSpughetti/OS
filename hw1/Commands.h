@@ -56,6 +56,7 @@ class RedirectionCommand : public Command {
   //void cleanup() override;
 };
 
+
 class ChPromptCommand : public BuiltInCommand{
   public:
   ChPromptCommand(const char* cmd_line)
@@ -128,7 +129,6 @@ class JobsList {
   int findMaxJID() const;
   int getMaxJID() const{return maxJID;};
   void quit();
-  //find the max JID, returns -1 if empty.
   // TODO: Add extra methods or modify exisitng ones as needed
 
 };

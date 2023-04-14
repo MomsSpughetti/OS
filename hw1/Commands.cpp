@@ -77,6 +77,8 @@ void _removeBackgroundSign(char* cmd_line) {
   cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
 
+
+
 static bool isNum(const std::string& str){
     for(auto& c : str){
       if(c< '0' || c > '9'){
@@ -86,7 +88,14 @@ static bool isNum(const std::string& str){
   return true;
 }
 
-
+static bool isComplexCommand(const std::string& cmdLine){
+  for(auto& c : cmdLine){
+    if(c == '?' || c =='*'){
+      return true;
+    }
+  }
+  return false;
+}
 /****************Built-in exec implemntaions****************/
 void ChPromptCommand::execute(){
   std::string cmdLine = getCmdLine().c_str();
@@ -236,6 +245,9 @@ void KillCommand::execute(){
     return;
   }
   kill(je->getPID(),sigNum);
+  if(sigNum == SIGSTOP){
+    je->stop();
+  }
   std::cout<<"signal number "<<sigNum<<" was sent to pid " <<je->getPID()<<std::endl;
 }
 
@@ -251,8 +263,13 @@ void ExternalCommand::execute(){
   int argsNum = _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
   int PID = fork();
-  if(PID ==0){
+  if(PID == 0){
+    if(isComplexCommand(cmdLine)){
+        execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr);
+    }
+    else{
     execvp(args[0],args);
+    }
   }
   if(PID > 0){
     if(bg){
