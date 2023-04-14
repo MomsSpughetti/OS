@@ -8,6 +8,7 @@
 #include <stack>
 #include <list>
 #include <time.h>
+#include <unistd.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -32,8 +33,8 @@ class BuiltInCommand : public Command {
 
 class ExternalCommand : public Command {
  public:
-  ExternalCommand(const char* cmd_line);
-  virtual ~ExternalCommand() {}
+  ExternalCommand(const char* cmd_line) : Command(cmd_line){}
+  virtual ~ExternalCommand() = default;
   void execute() override;
 };
 
@@ -91,21 +92,21 @@ class JobsList {
    // TODO: Add your data members
     int JID;
     int PID;
-    Command *cmd;
+    std::string cmdLine;
     bool isStopped;
     friend class JobsList;
     time_t startingTime;
    public:
-    JobEntry(int JID,int PID, Command *cmd, bool isStopped)
-     : JID(JID),PID(PID),cmd(cmd),isStopped(isStopped){}
-    ~JobEntry(){delete cmd;}
+    JobEntry(int JID,int PID, const std::string& cmdLine, bool isStopped)
+     : JID(JID),PID(PID),cmdLine(cmdLine),isStopped(isStopped){}
+    ~JobEntry() =default;
     bool stopped() const{return isStopped;};
     void run(){isStopped = false;}
     void stop(){isStopped = true;}
     int getJID() const{return JID;}
     int getPID() const{return PID;}
     void startTimer(){ startingTime = time(nullptr);}
-    Command* getCmd() const {return cmd;}
+    std::string getCmd() const {return cmdLine;}
   };
  // TODO: Add your data members
  private:
@@ -114,7 +115,7 @@ class JobsList {
  public:
   JobsList() : jobs(),maxJID(-1) {}
   ~JobsList(){quit();}
-  void addJob(Command* cmd,int PID, bool isStopped = false);
+  void addJob(const std::string& cmdLine,int PID, bool isStopped = false);
   void printJobsList();
   void printForQuit();
   void killAllJobs();
@@ -132,13 +133,6 @@ class JobsList {
 
 };
 
-class JobsCommand : public BuiltInCommand {
- // TODO: Add your data members
- public:
-  JobsCommand(const char* cmd_line, JobsList* jobs);
-  virtual ~JobsCommand() {}
-  void execute() override;
-};
 
 class ForegroundCommand : public BuiltInCommand {
   JobsList* jobsPtr;
@@ -208,11 +202,11 @@ class KillCommand : public BuiltInCommand {
   void execute() override;
 };
 
-class JobCommand : public BuiltInCommand{
+class JobsCommand : public BuiltInCommand{
   JobsList* jobsPtr;
  public:
-  JobCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobsPtr(jobs){}
-  virtual ~JobCommand() = default;
+  JobsCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobsPtr(jobs){}
+  virtual ~JobsCommand() = default;
   void execute() override;
 };
 
@@ -221,7 +215,8 @@ class SmallShell {
   std::string shellName;
   std::stack<std::string> dirHistory;
   JobsList jobs;
-  SmallShell() : shellName("smash"),dirHistory(),jobs(){}
+  bool finished;
+  SmallShell() : shellName("smash"),dirHistory(),jobs(),finished(false){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
@@ -243,6 +238,10 @@ class SmallShell {
   void recordDir(const std::string& lastDir){dirHistory.push(lastDir);}
   void rmLastDir(){dirHistory.pop();}
   bool noDirHistory() const{return dirHistory.empty();}
+  /**************Jobs****************/
+  void addJop(int PID,const std::string& cmdLine);
+  void quit(){finished =true;}
+  bool isFinished(){return finished;}
 };
 
 #endif //SMASH_COMMAND_H_
