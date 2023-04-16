@@ -105,37 +105,49 @@ void ChPromptCommand::execute(){
   smash->setName((argsNum !=1) ? args[1] : "smash");
 }
 
-void ChangeDirCommand::execute(){
+void ChangeDirCommand::execute(){//what if no args ?
   std::string cmdLine = getCmdLine();
   char* args[COMMAND_MAX_ARGS];
   int cmdLen = _parseCommandLine(cmdLine.c_str(),args);
   if(cmdLen > 2){
-    std::cout<<"smash error: cd: too many arguments"<<std::endl;
+    std::cerr<<"smash error: cd: too many arguments"<<std::endl;
     return;
   }
   SmallShell& smash = SmallShell::getInstance();
   char buffer[COMMAND_ARGS_MAX_LENGTH];
-  char* pwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  char* cwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  if(cwd == nullptr){
+    perror("smash error: getcwd failed\n");
+  }
   if(strcmp(args[1],"-") == 0){//go to the last pwd.
     if(smash.noDirHistory()){
-      std::cout<<"smash error: cd: OLDPWD not set"<<std::endl;
+      std::cerr<<"smash error: cd: OLDPWD not set"<<std::endl;
       return;
     }
     else{
-      chdir(smash.getLastDir().c_str());
+      if(chdir(smash.getLastDir().c_str())==-1){
+        perror("smash error: chdir failed\n");
+        return;
+      }
       smash.rmLastDir();
       return;
     }
   }
   else{
-    chdir(args[1]);
-    smash.recordDir(std::string(pwd));
+    if(chdir(args[1])==-1){
+      perror("smash error: chdir failed\n");
+      return;
+    }
+    smash.recordDir(std::string(cwd));
   }
 }
 
 void GetCurrDirCommand::execute(){
   char buffer[COMMAND_ARGS_MAX_LENGTH];
   char* cwd = getcwd(buffer,COMMAND_ARGS_MAX_LENGTH);
+  if(cwd == nullptr){
+    perror("smash error: getcwd failed\n");
+  }
   std::cout<<cwd<<std::endl;
 }
 
@@ -143,16 +155,16 @@ void ForegroundCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
   if(argsNum>2){
-    std::cout<<"smash error: fg: invalid arguments"<<std::endl;
+    std::cerr<<"smash error: fg: invalid arguments"<<std::endl;
     return;
   }
   if(jobsPtr->jobsNum() == 0){
-    std::cout<<"smash error: fg: jobs list is empty"<<std::endl;
+    std::cerr<<"smash error: fg: jobs list is empty"<<std::endl;
     return;
   }
   int targetJIT =(argsNum == 2) ? std::stoi(args[1]) : jobsPtr->getMaxJID();
   if(jobsPtr->getJobById(targetJIT)==nullptr){
-    std::cout<<"smash error: fg: job-id "<<targetJIT<<" does not exist"<<std::endl;
+    std::cerr<<"smash error: fg: job-id "<<targetJIT<<" does not exist"<<std::endl;
     return;
   }
   int targetPID = jobsPtr->getJobById(targetJIT)->getPID();
@@ -160,7 +172,10 @@ void ForegroundCommand::execute(){
 
   //all above might better be preprocceed with a helper function in the constructor
   //In that case its fine but if we can run a built-in command in bg it will cause problems.
-  kill(targetPID,SIGCONT); // should not return -1
+  if(kill(targetPID,SIGCONT) == -1){
+    perror("smash error: kill failed\n");
+    return;
+  }
   jobsPtr->removeJobById(targetJIT);
   std::cout<<targetCmdLine<<std::endl;
   waitpid(targetPID,nullptr,0);
@@ -170,7 +185,7 @@ void BackgroundCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
   if(argsNum>2){
-    std::cout<<"smash error: bg: invalid arguments"<<std::endl;
+    std::cerr<<"smash error: bg: invalid arguments"<<std::endl;
     return;
   }
   int targetJIT;
@@ -178,24 +193,27 @@ void BackgroundCommand::execute(){
   if(argsNum == 2){
     je = jobsPtr->getJobById(std::stoi(args[1]));
     if(je == nullptr){
-      std::cout<<"smash error: bg: job-id "<< args[1]<<" does not exist"<<std::endl;
+      std::cerr<<"smash error: bg: job-id "<< args[1]<<" does not exist"<<std::endl;
       return;
     }
     if(!je->stopped()){
-      std::cout<<"smash error: bg: job-id "<< args[1]<<" is already running in the background"<<std::endl;
+      std::cerr<<"smash error: bg: job-id "<< args[1]<<" is already running in the background"<<std::endl;
     }
   }
   if(argsNum ==1){
     je = jobsPtr->getLastStoppedJob(&targetJIT);
     if(je == nullptr){
-      std::cout<<"smash error: bg: there is no stopped jobs to resume"<<std::endl;
+      std::cerr<<"smash error: bg: there is no stopped jobs to resume"<<std::endl;
       return;
     }
   }
   targetJIT = je->getJID();
   int targetPID = je->getPID();
   std::string targetCmdLine =  jobsPtr->getJobById(targetJIT)->getCmd();
-  kill(targetPID,SIGCONT); // should not return -1
+  if(kill(targetPID,SIGCONT) == -1){
+    perror("smash error: kill failed\n");
+    return;
+  }
   je->run();
   std::cout<<targetCmdLine<<std::endl;
 }
@@ -221,7 +239,7 @@ void KillCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
   if(argsNum != 3 || args[1][0] != '-' ||!isNum(args[2])){
-    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+    std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
   std::string sigStr = args[1];
@@ -232,23 +250,25 @@ void KillCommand::execute(){
     sigNum = std::stoi(sigStr.substr(1,sigStr.size()+1));
     JID = std::stoi(args[2]);
   }catch(const std::out_of_range&){
-    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+    std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
   if(sigNum > 31 || sigNum <0 || JID == -1){
-    std::cout<<"smash error: kill: invalid arguments"<<std::endl;
+    std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
   JobsList::JobEntry* je = jobsPtr->getJobById(JID);
   if(je == nullptr){
-    std::cout<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
+    std::cerr<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
     return;
   }
-  kill(je->getPID(),sigNum);
+  if(kill(je->getPID(),sigNum)==-1){
+    perror("smash error: kill failed\n");
+  }
   if(sigNum == SIGSTOP){
     je->stop();
   }
-  std::cout<<"signal number "<<sigNum<<" was sent to pid " <<je->getPID()<<std::endl;
+  std::cerr<<"signal number "<<sigNum<<" was sent to pid " <<je->getPID()<<std::endl;
 }
 
 /********************ExternalCommands********************/
@@ -265,10 +285,14 @@ void ExternalCommand::execute(){
   int PID = fork();
   if(PID == 0){
     if(isComplexCommand(cmdLine)){
-        execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr);
+        if(execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr) == -1){
+          perror("smash error: execlp failed\n");
+        }
     }
     else{
-    execvp(args[0],args);
+      if(execvp(args[0],args) == -1){
+        perror("smash error: execvp failed\n");
+      }
     }
   }
   if(PID > 0){
@@ -369,7 +393,10 @@ void JobsList::removeJobById(int JID){
 
 void JobsList::killAllJobs(){
   for(auto &job : jobs){
-    kill(job->getPID(),SIGKILL);
+    if(kill(job->getPID(),SIGKILL) == -1){
+      perror("smash error: kill failed\n");
+      return;
+    }
   }
 }
 
