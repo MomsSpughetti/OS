@@ -327,6 +327,8 @@ void JobsList::addJob(const std::string& cmdLine,int PID, bool isStopped){
   je->startTimer();
 }
 
+
+
 void JobsList::printJobsList(){
   removeFinishedJobs();
   for(auto& job : jobs){
@@ -424,6 +426,15 @@ void SmallShell::addJop(int PID, const std::string& cmdLine){
   jobs.addJob(cmdLine,PID);
 }
 
+int findStr(const char* str, char** args){
+  for(int i=0; i<COMMAND_MAX_ARGS;++i){
+    if(strcmp(args[i],str) == 0){
+      return i;
+    }
+  }
+  return -1;;
+}
+
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
@@ -437,6 +448,11 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
   builtInCmdLine[strlen(cmd_line)] = '\0';
   strcpy(builtInCmdLine,cmd_line);
   _removeBackgroundSign(builtInCmdLine);
+  char* args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(cmd_line,args);
+  if(findStr(">",args)){
+    
+  }
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
   }
