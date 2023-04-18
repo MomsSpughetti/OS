@@ -15,8 +15,9 @@
 
 class Command {
   std::string cmdLine;
+
  public:
-  Command(const char* cmd_line) : cmdLine(std::string(cmd_line)) {}
+  Command(const char* cmd_line) : cmdLine(std::string(cmd_line)){}
   virtual ~Command() = default;
   virtual void execute() = 0;
   std::string getCmdLine() const{return cmdLine;} 
@@ -31,9 +32,11 @@ class BuiltInCommand : public Command {
   virtual ~BuiltInCommand() = default;
 };
 
-class ExternalCommand : public Command {
+class ExternalCommand : public Command { 
+  bool isChild;
  public:
-  ExternalCommand(const char* cmd_line) : Command(cmd_line){}
+  ExternalCommand(const char* cmd_line,bool isChild = false) : Command(cmd_line),isChild(isChild){}
+  bool child() const{return isChild;}
   virtual ~ExternalCommand() = default;
   void execute() override;
 };
@@ -84,7 +87,7 @@ class ShowPidCommand : public BuiltInCommand {
  public:
   ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
   virtual ~ShowPidCommand() = default;
-  void execute() override{printf("smash pid is %d\n",getpid());}
+  void execute() override{printf("smash pid is %d\n",getpid());} //TODO smash or current smash Name?
 };
 
 
@@ -217,13 +220,16 @@ class SmallShell {
   std::stack<std::string> dirHistory;
   JobsList jobs;
   bool finished;
+  bool isChild;
   SmallShell() : shellName("smash"),dirHistory(),jobs(),finished(false){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
-  Command *CreateCommand(const char* cmd_line);
+  Command *CreateCommand(const char* cmd_line, bool isChild =false);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
   void operator=(SmallShell const&)  = delete; // disable = operator
+  void setChild(){isChild = true;}
+  bool child()const{return isChild;}
   static SmallShell& getInstance() // make SmallShell singleton
   {
     static SmallShell instance; // Guaranteed to be destroyed.
@@ -231,7 +237,7 @@ class SmallShell {
     return instance;
   }
   ~SmallShell() = default;
-  void executeCommand(const char* cmd_line);
+  void executeCommand(const char* cmd_line, bool isChild =false);
   // TODO: add extra methods as needed
 
   /**********CD-Functions***********/

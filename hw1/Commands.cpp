@@ -26,7 +26,7 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 
 
 #define _DEBUG 1
-
+//#undef _DEBUG
 string _ltrim(const std::string& s)
 {
   size_t start = s.find_first_not_of(WHITESPACE);
@@ -185,6 +185,7 @@ void ForegroundCommand::execute(){
   jobsPtr->removeJobById(targetJIT);
   std::cout<<targetCmdLine<<std::endl;
   waitpid(targetPID,nullptr,0);
+  //check if second argument is a number
 }
 
 void BackgroundCommand::execute(){
@@ -197,13 +198,14 @@ void BackgroundCommand::execute(){
   int targetJIT;
   JobsList::JobEntry* je = nullptr;
   if(argsNum == 2){
-    je = jobsPtr->getJobById(std::stoi(args[1]));
+    je = jobsPtr->getJobById(std::stoi(args[1]));//cache exception
     if(je == nullptr){
       std::cerr<<"smash error: bg: job-id "<< args[1]<<" does not exist"<<std::endl;
       return;
     }
     if(!je->stopped()){
       std::cerr<<"smash error: bg: job-id "<< args[1]<<" is already running in the background"<<std::endl;
+      return;
     }
   }
   if(argsNum ==1){
@@ -222,6 +224,8 @@ void BackgroundCommand::execute(){
   }
   je->run();
   std::cout<<targetCmdLine<<std::endl;
+    //TODO check if second argument is a number 
+    //TODO check error printing order.
 }
 
 void QuitCommand::execute(){
@@ -278,10 +282,6 @@ void KillCommand::execute(){
 }
 
 /********************ExternalCommands********************/
-
-
-
-
 void ExternalCommand::execute(){
   std::string cmdLine = getCmdLine();
   bool bg = _isBackgroundComamnd(cmdLine.c_str());
@@ -292,7 +292,7 @@ void ExternalCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
-  int PID = fork();
+  int PID = (child()) ? 0 : fork();
   if(PID == 0){
     if(isComplexCommand(cmdLine)){
         if(execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr) == -1){
@@ -351,6 +351,9 @@ static std::string findRedirectionPip(char** args,int argNum,int* index = nullpt
   return "";
 }
 
+
+
+//ls -l > file.txt
 void RedirectionCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(getCmdLine().c_str(),args);
@@ -372,14 +375,18 @@ void RedirectionCommand::execute(){
   if(PID == 0){
     close(STDOUT_FILENO);
     if(redirectionCommand == ">"){
-      open(cmd2.c_str(), O_RDWR | O_CREAT,0111);
+      open(cmd2.c_str(), O_RDWR | O_CREAT); //TODO Do we need to clean the file?
     }
     else{//redirection == ">>"
       open(cmd2.c_str(),O_RDWR | O_CREAT | O_APPEND);
     }
-  smash.executeCommand(cmd1.c_str());
+  smash.executeCommand(cmd1.c_str(),true);
+  }
+  else{
+    waitpid(PID,nullptr,0);
   }
 }
+
 /****************************Jobs****************************/
 int JobsList::findMaxJID() const{
   int max = UNINITIALIZED;
@@ -429,8 +436,9 @@ void JobsList::removeFinishedJobs(){
   int status;
   for(auto& job : jobs){
     int pid = waitpid(job->getPID(),&status,WNOHANG);
-    if(pid){
-      toRmStack.push(job->getJID());
+   // std::cout<<status<<std::endl;
+    if( status == 0){
+  //    toRmStack.push(job->getJID());
     }
   }
   while(!toRmStack.empty()){
@@ -504,7 +512,7 @@ void SmallShell::addJop(int PID, const std::string& cmdLine){
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
-Command* SmallShell::CreateCommand(const char* cmd_line) {
+Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if(cmd_line == nullptr){
     return nullptr;
   }
@@ -517,6 +525,10 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(cmd_line,args);
   std::string redirectionCommand = findRedirectionPip(args,argsNum);
+  SmallShell& smash = SmallShell::getInstance();
+  if(isChild){
+    smash.setChild();
+  }
   if(redirectionCommand == ">" || redirectionCommand == ">>" ){
     return new RedirectionCommand(cmd_line);
   }
@@ -548,15 +560,14 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
     return new KillCommand(builtInCmdLine,&jobs);
   }
   
-  return new ExternalCommand(cmd_line);
+  return new ExternalCommand(cmd_line,isChild);
 }
 
-void SmallShell::executeCommand(const char *cmd_line) {
+void SmallShell::executeCommand(const char *cmd_line, bool isChild) {
   jobs.removeFinishedJobs();
-  Command* cmd = CreateCommand(cmd_line);
+  Command* cmd = CreateCommand(cmd_line,isChild);
   if(cmd != nullptr){
     cmd->execute();
   }
   delete cmd;
-  // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
