@@ -41,20 +41,21 @@ class ExternalCommand : public Command {
 class PipeCommand : public Command {
   // TODO: Add your data members
  public:
-  PipeCommand(const char* cmd_line);
-  virtual ~PipeCommand() {}
+  explicit PipeCommand(const char* cmd_line) : Command(cmd_line) {} 
+  virtual ~PipeCommand()  = default;
   void execute() override;
 };
 
 class RedirectionCommand : public Command {
  // TODO: Add your data members
  public:
-  explicit RedirectionCommand(const char* cmd_line);
-  virtual ~RedirectionCommand() {}
+  explicit RedirectionCommand(const char* cmd_line) : Command(cmd_line) {} 
+  virtual ~RedirectionCommand()  = default;
   void execute() override;
   //void prepare() override;
   //void cleanup() override;
 };
+
 
 
 class ChPromptCommand : public BuiltInCommand{

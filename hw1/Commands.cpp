@@ -7,6 +7,8 @@
 #include <iomanip>
 #include "Commands.h"
 #include <exception>
+#include <sys/types.h>
+#include <fcntl.h>
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
@@ -21,6 +23,9 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 #define FUNC_ENTRY()
 #define FUNC_EXIT()
 #endif
+
+
+#define _DEBUG 1
 
 string _ltrim(const std::string& s)
 {
@@ -96,6 +101,7 @@ static bool isComplexCommand(const std::string& cmdLine){
   }
   return false;
 }
+
 /****************Built-in exec implemntaions****************/
 void ChPromptCommand::execute(){
   std::string cmdLine = getCmdLine().c_str();
@@ -272,6 +278,10 @@ void KillCommand::execute(){
 }
 
 /********************ExternalCommands********************/
+
+
+
+
 void ExternalCommand::execute(){
   std::string cmdLine = getCmdLine();
   bool bg = _isBackgroundComamnd(cmdLine.c_str());
@@ -304,9 +314,72 @@ void ExternalCommand::execute(){
     }
   }
 }
+/************************************************************/
 
 
+static std::string createCmdLine(char** args,int start,int end){
+  std::string cmdLine = "";
+  for(int i=start;i<end;++i){
+    cmdLine+=args[i];
+    if(i !=end -1){
+      cmdLine+=" ";
+    }
+  }
+  return cmdLine;
+}
 
+static std::string findRedirectionPip(char** args,int argNum,int* index = nullptr){
+   if(index !=nullptr) *(index) = -1;
+  for(int i=0; i<argNum;++i){
+    if(strcmp(args[i],">") == 0){
+      if(index !=nullptr) (*index)= i;
+      return ">";
+    }
+    if(strcmp(args[i],">>") == 0){
+      if(index !=nullptr) (*index)= i;
+      return ">>";
+    }
+    if(strcmp(args[i],"|") == 0){
+      if(index !=nullptr) (*index)= i;
+      return "|";
+    }
+    if(strcmp(args[i],"|&") == 0){
+      if(index !=nullptr) (*index)= i;
+      return "|&";
+    }
+  }
+  return "";
+}
+
+void RedirectionCommand::execute(){
+  char* args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(getCmdLine().c_str(),args);
+  int i;
+  std::string redirectionCommand = findRedirectionPip(args,argsNum,&i);
+  if( i == argsNum -1  || i==0){//there is no right or left cmd
+    return; //what error to print?
+  }
+  SmallShell& smash=SmallShell::getInstance();
+  std::string cmd1 = createCmdLine(args,0,i);
+  std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
+  #undef _DEBUG
+  #ifdef _DEBUG
+  std::cout<<i<<endl;
+  std::cout<<"cmd1 : "<<cmd1<<endl;
+  std::cout<<"cmd2 : "<<cmd2<<endl;
+  #endif
+  int PID = fork();
+  if(PID == 0){
+    close(STDOUT_FILENO);
+    if(redirectionCommand == ">"){
+      open(cmd2.c_str(), O_RDWR | O_CREAT,0111);
+    }
+    else{//redirection == ">>"
+      open(cmd2.c_str(),O_RDWR | O_CREAT | O_APPEND);
+    }
+  smash.executeCommand(cmd1.c_str());
+  }
+}
 /****************************Jobs****************************/
 int JobsList::findMaxJID() const{
   int max = UNINITIALIZED;
@@ -426,14 +499,7 @@ void SmallShell::addJop(int PID, const std::string& cmdLine){
   jobs.addJob(cmdLine,PID);
 }
 
-int findStr(const char* str, char** args){
-  for(int i=0; i<COMMAND_MAX_ARGS;++i){
-    if(strcmp(args[i],str) == 0){
-      return i;
-    }
-  }
-  return -1;;
-}
+
 
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
@@ -450,8 +516,9 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
   _removeBackgroundSign(builtInCmdLine);
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(cmd_line,args);
-  if(findStr(">",args)){
-    
+  std::string redirectionCommand = findRedirectionPip(args,argsNum);
+  if(redirectionCommand == ">" || redirectionCommand == ">>" ){
+    return new RedirectionCommand(cmd_line);
   }
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
@@ -480,6 +547,7 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
   if (firstWord.compare("kill") == 0) {
     return new KillCommand(builtInCmdLine,&jobs);
   }
+  
   return new ExternalCommand(cmd_line);
 }
 
