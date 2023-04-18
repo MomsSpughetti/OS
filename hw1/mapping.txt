@@ -11,11 +11,11 @@ questions:
 	Q: where to add the jobs vector?
 	A: in smash class
 	Q: when to use fork other than in external commands?
-	A: ?
+	A: for example when using pip. Mohamad
 	Q: how to pass signal to the current process (signals are sent to 'main' process)?
-	A: ?
+	A: using kill syscall. Mohamad
 	Q: how to print vector in order?
-	A: ?
+	A: According to the job ID. Mohamad
 	Q: when and where to delete finished jobs?
 	A: finished jobs should be deleted in every while loop in main function
 	Q: what should the vector contain?
@@ -23,12 +23,23 @@ questions:
 
 notes to M1:
 	deleteing finished jobs should be done before moving to next loop (in main).
+	- yes, in addition we need to delete them before calling many functions, we will discuse that 
+	when we review the code.
 	shouldn't PID be a data member of command class? and from where PID value is set?
+	- no, command will get deleted before getting into the next command to execute
+		(there are work arounds, but that's working for now),jobs in the other hand are maintained until they finish or terminat.
 	why calling je->run() after 'kill(targetPID, SIGCONT)' (in backgroundCommand::execute())? shouldn't that be in handler code?
+	- faliure of kill() might cause a problem.
 	should add the print line if succeeded in kill command execute().
+	- The code need much more improvment, I cared about a semi-working version as early as possible.
 
 To add:
 	data member for smallShell class: 'Command *CurrCommand'. Then we can do whatever we want to the foreground process when main gets a signal!
 	
 	
 		
+problems:
+	bg - (removeFinished is removing the process that gets SIGCONT)
+	redirection command - fork() inside fork() - smash is written when it's not should be (solved)
+	|& in pipe ... how you should handle the existence of &
+
