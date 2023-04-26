@@ -26,7 +26,7 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 
 
 #define _DEBUG 1
-
+//#undef _DEBUG
 string _ltrim(const std::string& s)
 {
   size_t start = s.find_first_not_of(WHITESPACE);
@@ -185,6 +185,7 @@ void ForegroundCommand::execute(){
   jobsPtr->removeJobById(targetJIT);
   std::cout<<targetCmdLine<<std::endl;
   waitpid(targetPID,nullptr,0);
+  //check if second argument is a number
 }
 
 void BackgroundCommand::execute(){
@@ -197,13 +198,14 @@ void BackgroundCommand::execute(){
   int targetJIT;
   JobsList::JobEntry* je = nullptr;
   if(argsNum == 2){
-    je = jobsPtr->getJobById(std::stoi(args[1]));
+    je = jobsPtr->getJobById(std::stoi(args[1]));//cache exception
     if(je == nullptr){
       std::cerr<<"smash error: bg: job-id "<< args[1]<<" does not exist"<<std::endl;
       return;
     }
     if(!je->stopped()){
       std::cerr<<"smash error: bg: job-id "<< args[1]<<" is already running in the background"<<std::endl;
+      return;
     }
   }
   if(argsNum ==1){
@@ -222,6 +224,8 @@ void BackgroundCommand::execute(){
   }
   je->run();
   std::cout<<targetCmdLine<<std::endl;
+    //TODO check if second argument is a number 
+    //TODO check error printing order.
 }
 
 void QuitCommand::execute(){
@@ -255,7 +259,7 @@ void KillCommand::execute(){
   try{
     sigNum = std::stoi(sigStr.substr(1,sigStr.size()+1));
     JID = std::stoi(args[2]);
-  }catch(const std::exception &exe){
+  }catch(const std::exception &e){
     std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
@@ -268,11 +272,6 @@ void KillCommand::execute(){
     std::cerr<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
     return;
   }
-
-  //------------------test
-  //std::cout << "sending kill, SIGNUM is:" << sigNum << endl;
-
-  //------------------test
   if(kill(je->getPID(),sigNum)==-1){
     perror("smash error: kill failed\n");
     return;
@@ -284,10 +283,6 @@ void KillCommand::execute(){
 }
 
 /********************ExternalCommands********************/
-
-
-
-
 void ExternalCommand::execute(){
   std::string cmdLine = getCmdLine();
   bool bg = _isBackgroundComamnd(cmdLine.c_str());
@@ -298,7 +293,7 @@ void ExternalCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
-  int PID = fork();
+  int PID = (child()) ? 0 : fork();
   if(PID == 0){
     if(isComplexCommand(cmdLine)){
         if(execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr) == -1){
@@ -357,6 +352,80 @@ static std::string findRedirectionPip(char** args,int argNum,int* index = nullpt
   return "";
 }
 
+PipeCommand::PipeCommand(const char * cmd_line) : Command(cmd_line){
+  char* args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(getCmdLine().c_str(),args);
+  int i;
+  std::string s = findRedirectionPip(args, argsNum, &i);
+  SmallShell& smash=SmallShell::getInstance();
+
+  std::string cmd1 = createCmdLine(args,0,i);
+  std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
+  cmd1.c_str();
+  cmd2.c_str();
+
+  char cmd1NoBSign[cmd1.size()+1];
+  char cmd2NoBSign[cmd2.size()+1];
+
+  cmd1NoBSign[cmd1.size()] = '\0';
+  cmd2NoBSign[cmd2.size()] = '\0';
+
+  strcpy(cmd1NoBSign,cmd1.c_str());
+  strcpy(cmd2NoBSign,cmd2.c_str());
+
+  _removeBackgroundSign(cmd1NoBSign);
+  _removeBackgroundSign(cmd2NoBSign);
+
+  sign = s;
+  signPlace = (i == 0 || i == argsNum - 1)? -1 : i;
+  this->cmd1 = cmd1NoBSign;
+  this->cmd2 = cmd2NoBSign;
+
+  }
+
+void PipeCommand::execute()
+{
+  char* args1[COMMAND_MAX_ARGS];
+  char* args2[COMMAND_MAX_ARGS];
+
+  int args1Num = _parseCommandLine(cmd1.c_str(),args1);
+  int args2Num = _parseCommandLine(cmd2.c_str(),args2);
+
+  if( signPlace == -1){//there is no right or left cmd
+    return; //what error to print?
+  }
+
+  int fd[2];
+  pipe(fd);
+  int channel = (this->sign == "|")? 1 : (this->sign == "|&")? 2 : -1;
+
+  if(channel == -1){
+    std::cerr << "no such piping sign!!!" << endl;
+  }
+
+  SmallShell& smash=SmallShell::getInstance();
+
+  if (fork() == 0) {
+    // first child 
+    dup2(fd[1],channel);
+    close(fd[0]);
+    close(fd[1]);
+    //execv(args1[0], args1);
+    smash.executeCommand(cmd1.c_str());
+  }
+  if (fork() == 0) { 
+    // second child 
+    dup2(fd[0],0);
+    close(fd[0]);
+    close(fd[1]);
+    //execv(args2[0], args2);
+    smash.executeCommand(cmd2.c_str());
+  }
+  close(fd[0]);
+  close(fd[1]);
+  }
+
+//ls -l > file.txt
 void RedirectionCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(getCmdLine().c_str(),args);
@@ -378,14 +447,18 @@ void RedirectionCommand::execute(){
   if(PID == 0){
     close(STDOUT_FILENO);
     if(redirectionCommand == ">"){
-      open(cmd2.c_str(), O_RDWR | O_CREAT,0111);
+      open(cmd2.c_str(), O_RDWR | O_CREAT); //TODO Do we need to clean the file?
     }
     else{//redirection == ">>"
       open(cmd2.c_str(),O_RDWR | O_CREAT | O_APPEND);
     }
-  smash.executeCommand(cmd1.c_str());
+  smash.executeCommand(cmd1.c_str(),true);
+  }
+  else{
+    waitpid(PID,nullptr,0);
   }
 }
+
 /****************************Jobs****************************/
 int JobsList::findMaxJID() const{
   int max = UNINITIALIZED;
@@ -438,11 +511,11 @@ void JobsList::removeFinishedJobs(){
     std::cout << "------------ :" << status << endl; //test
     if(WIFEXITED(status)){
       toRmStack.push(job->getJID());
-    }
   }
   while(!toRmStack.empty()){
     removeJobById(toRmStack.top());
     toRmStack.pop();
+  }
   }
 }
 
@@ -511,7 +584,7 @@ void SmallShell::addJop(int PID, const std::string& cmdLine){
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
-Command* SmallShell::CreateCommand(const char* cmd_line) {
+Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if(cmd_line == nullptr){
     return nullptr;
   }
@@ -524,8 +597,15 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(cmd_line,args);
   std::string redirectionCommand = findRedirectionPip(args,argsNum);
+  SmallShell& smash = SmallShell::getInstance();
+  if(isChild){
+    smash.setChild();
+  }
   if(redirectionCommand == ">" || redirectionCommand == ">>" ){
     return new RedirectionCommand(cmd_line);
+  }
+  if(redirectionCommand == "|" || redirectionCommand == "|&"){
+    return new PipeCommand(cmd_line);
   }
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
@@ -555,15 +635,14 @@ Command* SmallShell::CreateCommand(const char* cmd_line) {
     return new KillCommand(builtInCmdLine,&jobs);
   }
   
-  return new ExternalCommand(cmd_line);
+  return new ExternalCommand(cmd_line,isChild);
 }
 
-void SmallShell::executeCommand(const char *cmd_line) {
+void SmallShell::executeCommand(const char *cmd_line, bool isChild) {
   jobs.removeFinishedJobs();
-  Command* cmd = CreateCommand(cmd_line);
+  Command* cmd = CreateCommand(cmd_line,isChild);
   if(cmd != nullptr){
     cmd->execute();
   }
   delete cmd;
-  // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
