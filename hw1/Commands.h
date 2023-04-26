@@ -183,7 +183,7 @@ class TimeoutCommand : public BuiltInCommand {
 class ChmodCommand : public BuiltInCommand {
   // TODO: Add your data members
  public:
-  ChmodCommand(const char* cmd_line);
+  ChmodCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
   virtual ~ChmodCommand() {}
   void execute() override;
 };

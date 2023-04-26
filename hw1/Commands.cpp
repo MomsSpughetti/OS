@@ -9,6 +9,8 @@
 #include <exception>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
@@ -459,6 +461,33 @@ void RedirectionCommand::execute(){
   }
 }
 
+
+void ChmodCommand::execute(){
+  char * args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(), args);
+  int mod;
+
+   //check is valid
+   try
+   {
+    mod = std::stoi(args[1]);
+   }
+   catch(const std::exception& e)
+   {
+    std::cerr << e.what() << '\n';
+   }
+   
+   if(argsNum != 3){
+    std::cerr << "smash error: chmod: invalid aruments";
+    return;
+   }
+
+  int chmodResult = chmod(args[2], mod);
+  if(chmodResult != 0){
+    std::cerr << "smash error: chmod failed";
+  }
+}
+
 /****************************Jobs****************************/
 int JobsList::findMaxJID() const{
   int max = UNINITIALIZED;
@@ -601,6 +630,9 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if(isChild){
     smash.setChild();
   }
+  if(firstWord.compare("chmod") == 0){
+    return new ChmodCommand(builtInCmdLine);
+  }
   if(redirectionCommand == ">" || redirectionCommand == ">>" ){
     return new RedirectionCommand(cmd_line);
   }
@@ -637,6 +669,7 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   
   return new ExternalCommand(cmd_line,isChild);
 }
+
 
 void SmallShell::executeCommand(const char *cmd_line, bool isChild) {
   jobs.removeFinishedJobs();
