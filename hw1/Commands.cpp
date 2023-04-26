@@ -255,7 +255,7 @@ void KillCommand::execute(){
   try{
     sigNum = std::stoi(sigStr.substr(1,sigStr.size()+1));
     JID = std::stoi(args[2]);
-  }catch(const std::out_of_range&){
+  }catch(const std::exception &exe){
     std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
@@ -268,8 +268,14 @@ void KillCommand::execute(){
     std::cerr<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
     return;
   }
+
+  //------------------test
+  //std::cout << "sending kill, SIGNUM is:" << sigNum << endl;
+
+  //------------------test
   if(kill(je->getPID(),sigNum)==-1){
     perror("smash error: kill failed\n");
+    return;
   }
   if(sigNum == SIGSTOP){
     je->stop();
@@ -290,7 +296,7 @@ void ExternalCommand::execute(){
   strcpy(cmdNoBg,cmdLine.c_str());
   _removeBackgroundSign(cmdNoBg);
   char* args[COMMAND_MAX_ARGS];
-  int argsNum = _parseCommandLine(cmdNoBg,args);
+  _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
   int PID = fork();
   if(PID == 0){
@@ -428,8 +434,9 @@ void JobsList::removeFinishedJobs(){
   stack<int> toRmStack;
   int status;
   for(auto& job : jobs){
-    int pid = waitpid(job->getPID(),&status,WNOHANG);
-    if(pid){
+    waitpid(job->getPID(),&status,WNOHANG);
+    std::cout << "------------ :" << status << endl; //test
+    if(WIFEXITED(status)){
       toRmStack.push(job->getJID());
     }
   }
