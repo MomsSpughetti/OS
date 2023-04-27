@@ -461,6 +461,50 @@ void RedirectionCommand::execute(){
   }
 }
 
+#include <bitset>
+
+mode_t int_to_mod(int val){
+  std::string perm;
+  mode_t mode = 0;
+  int uga[3];
+
+  for (int i = 0; i < 3; i++)
+  {
+    uga[i] = val % 10;
+    val /= 10;
+  }
+  
+  std::string usr = std::bitset<3>(uga[2]).to_string(); //to binary
+  std::string grp = std::bitset<3>(uga[1]).to_string(); //to binary
+  std::string all = std::bitset<3>(uga[0]).to_string(); //to binary
+  
+  perm += usr;
+  perm += grp;
+  perm +=all;
+
+  std::cout << "mod is -----------" << perm << endl; //DEBUG
+
+  if (perm[0] == '1')
+    mode |= S_IRUSR;
+  if (perm[1] == '1')
+    mode |= S_IWUSR;
+  if (perm[2] == '1')
+    mode |= S_IXUSR;
+  if (perm[3] == '1')
+    mode |= S_IRGRP;
+  if (perm[4] == '1')
+    mode |= S_IWGRP;
+  if (perm[5] == '1')
+    mode |= S_IXGRP;
+  if (perm[6] == '1')
+    mode |= S_IROTH;
+  if (perm[7] == '1')
+    mode |= S_IWOTH;
+  if (perm[8] == '1')
+    mode |= S_IXOTH;
+
+  return mode;
+}
 
 void ChmodCommand::execute(){
   char * args[COMMAND_MAX_ARGS];
@@ -482,9 +526,10 @@ void ChmodCommand::execute(){
     return;
    }
 
-  int chmodResult = chmod(args[2], mod);
+   mode_t modi = int_to_mod(mod);
+  int chmodResult = chmod(args[2], modi);
   if(chmodResult != 0){
-    std::cerr << "smash error: chmod failed";
+    std::cerr << "smash error: chmod failed" << endl;
   }
 }
 

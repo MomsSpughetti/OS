@@ -50,7 +50,7 @@ class PipeCommand : public Command {
   std::string cmd2;
 
  public:
-  explicit PipeCommand(const char* cmd_line) : Command(cmd_line) {} 
+  explicit PipeCommand(const char* cmd_line);
   virtual ~PipeCommand()  = default;
   void execute() override;
   
