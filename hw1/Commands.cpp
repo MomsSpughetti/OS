@@ -365,12 +365,6 @@ void RedirectionCommand::execute(){
   SmallShell& smash=SmallShell::getInstance();
   std::string cmd1 = createCmdLine(args,0,i);
   std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
-  #undef _DEBUG
-  #ifdef _DEBUG
-  std::cout<<i<<endl;
-  std::cout<<"cmd1 : "<<cmd1<<endl;
-  std::cout<<"cmd2 : "<<cmd2<<endl;
-  #endif
   int PID = fork();
   if(PID == 0){
     close(STDOUT_FILENO);
