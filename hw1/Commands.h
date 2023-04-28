@@ -219,11 +219,11 @@ class JobsCommand : public BuiltInCommand{
 class SmallShell {
  private:
   std::string shellName;
-  std::stack<std::string> dirHistory;
+  std::string lastDir;
   JobsList jobs;
   bool finished;
   bool isChild;
-  SmallShell() : shellName("smash"),dirHistory(),jobs(),finished(false){}
+  SmallShell() : shellName("smash"),lastDir(""),jobs(),finished(false){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
@@ -243,10 +243,9 @@ class SmallShell {
   // TODO: add extra methods as needed
 
   /**********CD-Functions***********/
-  std::string getLastDir() const {return dirHistory.top();}
-  void recordDir(const std::string& lastDir){dirHistory.push(lastDir);}
-  void rmLastDir(){dirHistory.pop();}
-  bool noDirHistory() const{return dirHistory.empty();}
+  std::string getLastDir() const {return this->lastDir;}
+  void updateLastDir(const std::string& lastDir){this->lastDir= lastDir;}
+  bool noDirHistory() const{return lastDir == "";}
   /**************Jobs****************/
   void addJop(int PID,const std::string& cmdLine);
   void quit(){finished =true;}

@@ -135,7 +135,7 @@ void ChangeDirCommand::execute(){//what if no args ?
         perror("smash error: chdir failed\n");
         return;
       }
-      smash.rmLastDir();
+      smash.updateLastDir(cwd);
       return;
     }
   }
@@ -144,7 +144,7 @@ void ChangeDirCommand::execute(){//what if no args ?
       perror("smash error: chdir failed\n");
       return;
     }
-    smash.recordDir(std::string(cwd));
+     smash.updateLastDir(cwd);
   }
 }
 
