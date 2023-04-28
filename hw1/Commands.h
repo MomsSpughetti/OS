@@ -256,6 +256,7 @@ class SmallShell {
   void addJop(int PID,const std::string& cmdLine);
   void quit(){finished =true;}
   bool isFinished(){return finished;}
+  int getJobPID(int JID){return (jobs.getJobById(JID) == nullptr)? -1 : jobs.getJobById(JID)->getPID();}
 };
 
 #endif //SMASH_COMMAND_H_

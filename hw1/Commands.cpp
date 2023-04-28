@@ -415,6 +415,7 @@ void PipeCommand::execute()
     //execv(args1[0], args1);
     smash.executeCommand(cmd1.c_str());
   }
+
   if (fork() == 0) { 
     // second child 
     dup2(fd[0],0);
@@ -423,6 +424,7 @@ void PipeCommand::execute()
     //execv(args2[0], args2);
     smash.executeCommand(cmd2.c_str());
   }
+  
   close(fd[0]);
   close(fd[1]);
   }
@@ -482,8 +484,6 @@ mode_t int_to_mod(int val){
   perm += grp;
   perm +=all;
 
-  std::cout << "mod is -----------" << perm << endl; //DEBUG
-
   if (perm[0] == '1')
     mode |= S_IRUSR;
   if (perm[1] == '1')
@@ -530,6 +530,83 @@ void ChmodCommand::execute(){
   int chmodResult = chmod(args[2], modi);
   if(chmodResult != 0){
     std::cerr << "smash error: chmod failed" << endl;
+  }
+}
+
+
+GetFileTypeCommand::GetFileTypeCommand(const char *cmd_line) : BuiltInCommand(cmd_line){}
+
+void GetFileTypeCommand::execute(){
+  char * args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(), args);
+  struct stat file_stat;
+
+  if(argsNum != 2 || stat(args[1], &file_stat) != 0){
+    std::cerr << "smash error: gettype: invalid aruments" << endl;
+    return;
+  } 
+
+  std::string type_;
+
+    if (S_ISREG(file_stat.st_mode)) {
+        type_ = "regular file";
+    } else if (S_ISDIR(file_stat.st_mode)) {
+        type_ = "directory";
+    } else if (S_ISLNK(file_stat.st_mode)) {
+        type_ = "symbolic link";
+    } else if (S_ISCHR(file_stat.st_mode)) {
+        type_ = "character device";
+    } else if (S_ISBLK(file_stat.st_mode)) {
+        type_ = "block device";
+    } else if (S_ISFIFO(file_stat.st_mode)) {
+        type_ = "FIFO";
+    } else if (S_ISSOCK(file_stat.st_mode)) {
+        type_ = "socket";
+    }
+
+    std::cout << args[1] << "'s type is “"<< type_ <<"” and takes up " << file_stat.st_size <<" bytes";
+}
+
+#include <sched.h>
+SetcoreCommand::SetcoreCommand(const char * cmd_line) : BuiltInCommand(cmd_line){
+
+}
+
+void SetcoreCommand::execute(){
+
+  char * args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(), args);
+
+  //are arguments valid?
+  if(argsNum != 3){
+    std::cerr << "smash error: setcore: invalid arguments" << endl;
+  }
+
+  int coreNum = -1, JID;
+  try
+  {
+    coreNum = std::stoi(args[3], nullptr);
+    JID = std::stoi(args[2], nullptr);
+  }
+  catch(const std::exception& e)
+  {
+    std::cerr << "smash error: setcore: invalid arguments" << endl;
+  }
+
+  //get the PID of the process with JID
+    SmallShell& smash = SmallShell::getInstance();
+    int PID = smash.getJobPID(JID);
+
+    if(PID == -1){
+    std::cerr << "smash error: setcore: job-id "<< JID <<" does not exist" << endl;
+    }
+
+  cpu_set_t cpuSet;
+  CPU_ZERO(&cpuSet); // clear the set of CPUs
+  CPU_SET(coreNum, &cpuSet); // add CPU core 1 to the set
+
+  if (sched_setaffinity(0, sizeof(cpuSet), &cpuSet) == -1) {
+    std::cerr << "smash error: setcore: invalid core number" << std::endl;
   }
 }
 
