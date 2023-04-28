@@ -43,10 +43,17 @@ class ExternalCommand : public Command {
 
 class PipeCommand : public Command {
   // TODO: Add your data members
+ private:
+  std::string sign;
+  int signPlace;
+  std::string cmd1;
+  std::string cmd2;
+
  public:
-  explicit PipeCommand(const char* cmd_line) : Command(cmd_line) {} 
+  explicit PipeCommand(const char* cmd_line);
   virtual ~PipeCommand()  = default;
   void execute() override;
+  
 };
 
 class RedirectionCommand : public Command {
@@ -174,26 +181,25 @@ class TimeoutCommand : public BuiltInCommand {
 };
 
 class ChmodCommand : public BuiltInCommand {
-  // TODO: Add your data members
  public:
-  ChmodCommand(const char* cmd_line);
-  virtual ~ChmodCommand() {}
+  ChmodCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  virtual ~ChmodCommand() = default;
   void execute() override;
 };
 
 class GetFileTypeCommand : public BuiltInCommand {
   // TODO: Add your data members
  public:
-  GetFileTypeCommand(const char* cmd_line);
-  virtual ~GetFileTypeCommand() {}
+  GetFileTypeCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  virtual ~GetFileTypeCommand() = default;
   void execute() override;
 };
 
 class SetcoreCommand : public BuiltInCommand {
   // TODO: Add your data members
  public:
-  SetcoreCommand(const char* cmd_line);
-  virtual ~SetcoreCommand() {}
+  SetcoreCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  virtual ~SetcoreCommand() = default;
   void execute() override;
 };
 
@@ -250,6 +256,7 @@ class SmallShell {
   void addJop(int PID,const std::string& cmdLine);
   void quit(){finished =true;}
   bool isFinished(){return finished;}
+  int getJobPID(int JID){return (jobs.getJobById(JID) == nullptr)? -1 : jobs.getJobById(JID)->getPID();}
 };
 
 #endif //SMASH_COMMAND_H_
