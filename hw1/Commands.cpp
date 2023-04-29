@@ -303,8 +303,19 @@ void ExternalCommand::execute(){
   char* args[COMMAND_MAX_ARGS];
   int argsNum = _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
-  int PID = (child()) ? 0 : fork();
+  int PID;
+  if(child()){
+    PID=0;
+  }
+  else{
+    PID = fork();
+    if(PID == 0){
+      setpgrp();
+    }
+  }
+
   if(PID == 0){
+    setpgrp();
     if(isComplexCommand(cmdLine)){
         if(execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr) == -1){
           perror("smash error: execlp failed");
@@ -380,6 +391,7 @@ void RedirectionCommand::execute(){
   std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
   int PID = fork();
   if(PID == 0){
+    setpgrp();
     close(STDOUT_FILENO);
     if(redirectionCommand == ">"){
       open(cmd2.c_str(), O_RDWR | O_CREAT | O_TRUNC); //TODO Do we need to clean the file?
@@ -450,7 +462,7 @@ void PipeCommand::execute()
   
 
   int PID = fork();
-  
+  setpgrp();
   if (PID == 0) {
     // first child 
     dup2(fd[1],channel);
@@ -460,7 +472,8 @@ void PipeCommand::execute()
     smash.executeCommand(cmd1.c_str(),true);
   }
 
-  if (fork() == 0 && PID > 0) { 
+  if (fork() == 0 && PID > 0) {
+    setpgrp(); 
     // second child 
     dup2(fd[0],0);
     close(fd[0]);
