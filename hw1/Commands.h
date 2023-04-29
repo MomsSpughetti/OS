@@ -109,7 +109,7 @@ class JobsList {
     friend class JobsList;
     time_t startingTime;
    public:
-    JobEntry(int JID,int PID, const std::string& cmdLine, bool isStopped)
+    JobEntry(int JID,int PID, const std::string& cmdLine, bool isStopped = false)
      : JID(JID),PID(PID),cmdLine(cmdLine),isStopped(isStopped){}
     ~JobEntry() =default;
     bool stopped() const{return isStopped;};
@@ -140,6 +140,7 @@ class JobsList {
   int findMaxJID() const;
   int getMaxJID() const{return maxJID;};
   void quit();
+  int getJIDByPID(int PID) const;
   // TODO: Add extra methods or modify exisitng ones as needed
 
 };
@@ -226,10 +227,13 @@ class SmallShell {
  private:
   std::string shellName;
   std::string lastDir;
+  std::string currentCmdLine;
   JobsList jobs;
   bool finished;
   bool isChild;
-  SmallShell() : shellName("smash"),lastDir(""),jobs(),finished(false){}
+  int currentProcess;
+
+  SmallShell() : shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),finished(false),currentProcess(-1){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
@@ -238,6 +242,11 @@ class SmallShell {
   void operator=(SmallShell const&)  = delete; // disable = operator
   void setChild(){isChild = true;}
   bool child()const{return isChild;}
+  int getCurrentProcess() const {return currentProcess;}
+  void setCurrentProcess(int newProcessPID){currentProcess=newProcessPID;}
+
+  std::string getCurrentCommand() const{return currentCmdLine;}
+  void setCurrentCommand(const std::string cmdLine){currentCmdLine =cmdLine;}
   static SmallShell& getInstance() // make SmallShell singleton
   {
     static SmallShell instance; // Guaranteed to be destroyed.
@@ -253,10 +262,13 @@ class SmallShell {
   void updateLastDir(const std::string& lastDir){this->lastDir= lastDir;}
   bool noDirHistory() const{return lastDir == "";}
   /**************Jobs****************/
-  void addJop(int PID,const std::string& cmdLine);
+  void addJob(int PID,const std::string& cmdLine, bool stop = false);
+  void removeJob(int JID){jobs.removeJobById(JID);};
   void quit(){finished =true;}
   bool isFinished(){return finished;}
-  int getJobPID(int JID){return (jobs.getJobById(JID) == nullptr)? -1 : jobs.getJobById(JID)->getPID();}
+  int getJobPID(int JID) {return (jobs.getJobById(JID) == nullptr)? -1 : jobs.getJobById(JID)->getPID();}
+  int getJobJID(int PID) const{return jobs.getJIDByPID(PID);};
+
 };
 
 #endif //SMASH_COMMAND_H_

@@ -16,6 +16,10 @@ using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
 #define UNINITIALIZED -1;
+
+
+
+
 #if 0
 #define FUNC_ENTRY()  \
   cout << __PRETTY_FUNCTION__ << " --> " << endl;
@@ -179,16 +183,20 @@ void ForegroundCommand::execute(){
   }
   int targetPID = jobsPtr->getJobById(targetJID)->getPID();
   std::string targetCmdLine =  jobsPtr->getJobById(targetJID)->getCmd();
-
+  SmallShell& smash = SmallShell::getInstance();
   //all above might better be preprocceed with a helper function in the constructor
   //In that case its fine but if we can run a built-in command in bg it will cause problems.
   if(kill(targetPID,SIGCONT) == -1){
     perror("smash error: kill failed");
     return;
   }
-  jobsPtr->removeJobById(targetJID);
+ 
   std::cout<<targetCmdLine<<std::endl;
-  waitpid(targetPID,nullptr,0);
+  smash.setCurrentProcess(targetPID);
+  smash.setCurrentCommand(smash.getCurrentCommand());
+  waitpid(targetPID,nullptr,WUNTRACED);
+  smash.setCurrentProcess(-1);
+  smash.setCurrentCommand("");
   //check if second argument is a number
 }
 
@@ -333,10 +341,14 @@ void ExternalCommand::execute(){
   }
   if(PID > 0){
     if(bg){
-      smash.addJop(PID,getCmdLine());
+      smash.addJob(PID,getCmdLine());
     }
     else{
-      waitpid(PID,nullptr,0);
+      smash.setCurrentProcess(PID);
+      smash.setCurrentCommand(cmdLine);
+      waitpid(PID,nullptr,WUNTRACED);
+      smash.setCurrentProcess(-1);
+      smash.setCurrentCommand("");
     }
   }
 }
@@ -639,6 +651,12 @@ int JobsList::findMaxJID() const{
 
 void JobsList::addJob(const std::string& cmdLine,int PID, bool isStopped){
   removeFinishedJobs();
+  for(auto& jobPtr : jobs){
+      if(jobPtr->getPID() == PID){
+        jobPtr->startTimer();
+        return;
+      }
+  }
   int JID = (jobs.size() == 0) ? 1 : maxJID+1;
   maxJID=JID;
   JobEntry* je = new JobEntry(JID,PID,cmdLine,isStopped);
@@ -673,19 +691,10 @@ void JobsList::printForQuit(){
 void JobsList::removeFinishedJobs(){
   stack<int> toRmStack;
   int status, pid;
-  auto findJIDByPID = [this](int pid){
-        for(auto& job : jobs){
-          if(job->getPID() == pid){
-            return job->getJID();
-          }
-        }
-        return 0;
-  };
-
   do{
     pid= waitpid(-1,nullptr,WNOHANG);
     if(pid > 0){
-      toRmStack.push(findJIDByPID(pid));
+      toRmStack.push(getJIDByPID(pid));
     }
     else{
       break;
@@ -752,10 +761,19 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *JIDptr){
 
 
 
+int JobsList::getJIDByPID(int PID) const{
+  for(auto& jobPtr : jobs){
+    if(jobPtr->getPID() == PID){
+      return jobPtr->getJID();
+    }
+  }
+  return -1;
+}
 
 
-void SmallShell::addJop(int PID, const std::string& cmdLine){
-  jobs.addJob(cmdLine,PID);
+
+void SmallShell::addJob(int PID, const std::string& cmdLine, bool stop){
+  jobs.addJob(cmdLine,PID,stop);
 }
 
 
