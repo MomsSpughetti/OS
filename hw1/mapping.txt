@@ -1,3 +1,41 @@
+
+
+
+time_out command:
+	recieve a new timeOut command -> Build_in_command ->:
+		if(external)
+			use fork + execv() to start the given command ->
+			
+			if(&)
+				add the newCommand to the timeOut list (it should have timestamp, duration, pid)
+			else()
+				nothing
+		
+		else()
+			like jobs - it works in foreground
+	THE JUICE:
+		how to time the moment of sending SIGKILL?
+	#include <unistd.h>
+       unsigned int alarm(unsigned int seconds);
+       
+        it sends the signal to the calling process, so:
+       		*use alarm(secondes) syscall in the exec() function of timeOut command (before execv()?)
+       	
+       		how to know the process to send SIGKILL to?
+       			using the list data member of timeOut command obviously! but how?
+       			maybe by sorting the list by the finish time (timestamp + duration)
+       			so we always should send to the first process in the list when receiving a SIGALRM
+       			(is it always working?)
+       			in case of Built_in_command do not send SIGKILL(killing the smash itself),is it even applicable?
+       			in case of foreground external process, just like before, it will get SIGALRM in the right time 
+       			if it was in the list.
+       	 
+       		
+
+
+
+
+
 jobs list:
 	add vector to smash
 	add process to vector if:
@@ -35,11 +73,19 @@ notes to M1:
 
 To add:
 	data member for smallShell class: 'Command *CurrCommand'. Then we can do whatever we want to the foreground process when main gets a signal!
+	signal handlers
 	
 	
 		
 problems:
 	bg - (removeFinished is removing the process that gets SIGCONT)
+	new one: sleep 10 -> sigstop -> sigcont - but sleep still finishes at 10 - if sigcont was sent besfore 10 - else
+	it will finishes immediatly!
 	redirection command - fork() inside fork() - smash is written when it's not should be (solved)
 	|& in pipe ... how you should handle the existence of &
+	
+	
+
+
+
 

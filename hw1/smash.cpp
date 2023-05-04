@@ -6,6 +6,7 @@
 #include "signals.h"
 
 int main(int argc, char* argv[]) {
+
     if(signal(SIGTSTP , ctrlZHandler)==SIG_ERR) {
         perror("smash error: failed to set ctrl-Z handler");
     }
@@ -13,15 +14,13 @@ int main(int argc, char* argv[]) {
         perror("smash error: failed to set ctrl-C handler");
     }
 
-    //TODO: setup sig alarm handler
-
     SmallShell& smash = SmallShell::getInstance();
     while(true) {
         std::cout << smash.getName()<<"> ";
         std::string cmd_line;
         std::getline(std::cin, cmd_line);
         smash.executeCommand(cmd_line.c_str());
-        if(smash.isFinished()){
+        if(smash.isFinished() || smash.child()){
             break;
         }
     }
