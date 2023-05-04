@@ -9,18 +9,19 @@
 #include <list>
 #include <time.h>
 #include <unistd.h>
-
+#include <iostream>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 
 class Command {
   std::string cmdLine;
-
+  bool isChild;
  public:
-  Command(const char* cmd_line) : cmdLine(std::string(cmd_line)){}
+  Command(const char* cmd_line, bool isChild = false) : cmdLine(std::string(cmd_line)), isChild(isChild){}
   virtual ~Command() = default;
   virtual void execute() = 0;
   std::string getCmdLine() const{return cmdLine;} 
+  bool child() const{return isChild;}
   //virtual void prepare();
   //virtual void cleanup();
   // TODO: Add your extra methods if needed
@@ -28,15 +29,15 @@ class Command {
 
 class BuiltInCommand : public Command {
  public:
-  BuiltInCommand(const char* cmd_line): Command(cmd_line){}
+  BuiltInCommand(const char* cmd_line , bool isChild = false): Command(cmd_line,isChild){}
   virtual ~BuiltInCommand() = default;
 };
 
 class ExternalCommand : public Command { 
-  bool isChild;
+  bool isTimed;
  public:
-  ExternalCommand(const char* cmd_line,bool isChild = false) : Command(cmd_line),isChild(isChild){}
-  bool child() const{return isChild;}
+  ExternalCommand(const char* cmd_line,bool isChild = false, bool isTimed = false) : Command(cmd_line,isChild),isTimed(isTimed){}
+  bool timed() const{return isTimed;}
   virtual ~ExternalCommand() = default;
   void execute() override;
 };
@@ -59,7 +60,7 @@ class PipeCommand : public Command {
 class RedirectionCommand : public Command {
  // TODO: Add your data members
  public:
-  explicit RedirectionCommand(const char* cmd_line) : Command(cmd_line) {} 
+  explicit RedirectionCommand(const char* cmd_line,bool isChild = false): Command(cmd_line,isChild) {} 
   virtual ~RedirectionCommand()  = default;
   void execute() override;
   //void prepare() override;
@@ -70,31 +71,29 @@ class RedirectionCommand : public Command {
 
 class ChPromptCommand : public BuiltInCommand{
   public:
-  ChPromptCommand(const char* cmd_line)
-   : BuiltInCommand(cmd_line){}
+  ChPromptCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   void execute() override;
 };
 
 class ChangeDirCommand : public BuiltInCommand {
 public:
-  ChangeDirCommand(const char* cmd_line)
-   : BuiltInCommand(cmd_line){}
+  ChangeDirCommand(const char* cmd_line, bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   virtual ~ChangeDirCommand() = default;
   void execute() override;
 };
 
 class GetCurrDirCommand : public BuiltInCommand {
  public:
-  GetCurrDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
+  GetCurrDirCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   virtual ~GetCurrDirCommand() = default;
   void execute() override;
 };
 
 class ShowPidCommand : public BuiltInCommand {
  public:
-  ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
+  ShowPidCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   virtual ~ShowPidCommand() = default;
-  void execute() override{printf("smash pid is %d\n",getpid());} //TODO smash or current smash Name?
+  void execute() override;//TODO smash or current smash Name?
 };
 
 
@@ -132,7 +131,7 @@ class JobsList {
   void printForQuit();
   void killAllJobs();
   void removeFinishedJobs();
-  JobEntry* getJobById(int jobId);
+  JobEntry* getJobById(int jobId) const;
   void removeJobById(int jobId);
   JobEntry * getLastJob(int* lastJobId);
   JobEntry *getLastStoppedJob(int *jobId);
@@ -141,15 +140,15 @@ class JobsList {
   int getMaxJID() const{return maxJID;};
   void quit();
   int getJIDByPID(int PID) const;
+  std::string getCmd(int JID) const{return getJobById(JID)->getCmd();}
   // TODO: Add extra methods or modify exisitng ones as needed
 
 };
 
-
 class ForegroundCommand : public BuiltInCommand {
   JobsList* jobsPtr;
  public:
-  ForegroundCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line),jobsPtr(jobs){}
+  ForegroundCommand(const char* cmd_line, JobsList* jobs,bool isChild = false): BuiltInCommand(cmd_line,isChild),jobsPtr(jobs){}
   virtual ~ForegroundCommand() = default;
   void execute() override;
 };
@@ -158,7 +157,7 @@ class ForegroundCommand : public BuiltInCommand {
 class BackgroundCommand : public BuiltInCommand {
   JobsList* jobsPtr;
  public:
-  BackgroundCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line),jobsPtr(jobs){}
+  BackgroundCommand(const char* cmd_line, JobsList* jobs,bool isChild = false): BuiltInCommand(cmd_line,isChild),jobsPtr(jobs){}
   virtual ~BackgroundCommand() = default;
   void execute() override;
 };
@@ -167,23 +166,22 @@ class JobsList;
 class QuitCommand : public BuiltInCommand {
   JobsList* jobsPtr;
 public:
-  QuitCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line),jobsPtr(jobs){}
+  QuitCommand(const char* cmd_line, JobsList* jobs,bool isChild = false): BuiltInCommand(cmd_line,isChild),jobsPtr(jobs){}
   virtual ~QuitCommand() = default;
   void execute() override;
 };
 
 class TimeoutCommand : public BuiltInCommand {
-/* Bonus */
-// TODO: Add your data members
+
  public:
-  explicit TimeoutCommand(const char* cmd_line);
-  virtual ~TimeoutCommand() {}
+  explicit TimeoutCommand(const char* cmd_line,bool isChild = false) : BuiltInCommand(cmd_line,isChild) {}
+  virtual ~TimeoutCommand() =default;
   void execute() override;
 };
 
 class ChmodCommand : public BuiltInCommand {
  public:
-  ChmodCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  explicit ChmodCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild){}
   virtual ~ChmodCommand() = default;
   void execute() override;
 };
@@ -191,7 +189,7 @@ class ChmodCommand : public BuiltInCommand {
 class GetFileTypeCommand : public BuiltInCommand {
   // TODO: Add your data members
  public:
-  GetFileTypeCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  explicit GetFileTypeCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   virtual ~GetFileTypeCommand() = default;
   void execute() override;
 };
@@ -199,7 +197,7 @@ class GetFileTypeCommand : public BuiltInCommand {
 class SetcoreCommand : public BuiltInCommand {
   // TODO: Add your data members
  public:
-  SetcoreCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
+  explicit SetcoreCommand(const char* cmd_line,bool isChild = false): BuiltInCommand(cmd_line,isChild) {}
   virtual ~SetcoreCommand() = default;
   void execute() override;
 };
@@ -208,7 +206,7 @@ class SetcoreCommand : public BuiltInCommand {
 class KillCommand : public BuiltInCommand {
   JobsList* jobsPtr;
  public:
-  KillCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line),jobsPtr(jobs){}
+  KillCommand(const char* cmd_line, JobsList* jobs,bool isChild = false): BuiltInCommand(cmd_line,isChild),jobsPtr(jobs){}
   virtual ~KillCommand() = default;
   void execute() override;
 };
@@ -216,35 +214,50 @@ class KillCommand : public BuiltInCommand {
 class JobsCommand : public BuiltInCommand{
   JobsList* jobsPtr;
  public:
-  JobsCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobsPtr(jobs){}
+  JobsCommand(const char* cmd_line, JobsList* jobs,bool isChild = false): BuiltInCommand(cmd_line,isChild) , jobsPtr(jobs){}
   virtual ~JobsCommand() = default;
   void execute() override;
 };
 
 
+class TimedJob{
+private:
+  int PID;
+  int duration;
+  time_t startingTime;
+public:
+  TimedJob(int PID, int duration,const time_t& startingTime) : PID(PID), duration(duration),startingTime(startingTime) {}
+  time_t getFinisingTime() const{
+    return startingTime + time_t(duration);
+  }
+  int getPID() const{return PID;}
+  int getDuration() const{return duration;}
+};
 
 class SmallShell {
  private:
+  int pid;
   std::string shellName;
   std::string lastDir;
   std::string currentCmdLine;
   JobsList jobs;
+   //PID : Time
   bool finished;
   bool isChild;
   int currentProcess;
-
-  SmallShell() : shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),finished(false),currentProcess(-1){}
+  int currentTimedJobDuration;
+  SmallShell() : pid(getpid()),shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),finished(false),currentProcess(-1),currentTimedJobDuration(-1){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
-  Command *CreateCommand(const char* cmd_line, bool isChild =false);
+  Command *CreateCommand(const char* cmd_line, bool isChild =false, bool isTimed = false);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
   void operator=(SmallShell const&)  = delete; // disable = operator
   void setChild(){isChild = true;}
   bool child()const{return isChild;}
   int getCurrentProcess() const {return currentProcess;}
   void setCurrentProcess(int newProcessPID){currentProcess=newProcessPID;}
-
+std::list<TimedJob> TimedJobsList;
   std::string getCurrentCommand() const{return currentCmdLine;}
   void setCurrentCommand(const std::string cmdLine){currentCmdLine =cmdLine;}
   static SmallShell& getInstance() // make SmallShell singleton
@@ -254,7 +267,7 @@ class SmallShell {
     return instance;
   }
   ~SmallShell() = default;
-  void executeCommand(const char* cmd_line, bool isChild =false);
+  void executeCommand(const char* cmd_line, bool isChild =false, bool isTimed = false);
   // TODO: add extra methods as needed
 
   /**********CD-Functions***********/
@@ -268,7 +281,14 @@ class SmallShell {
   bool isFinished(){return finished;}
   int getJobPID(int JID) {return (jobs.getJobById(JID) == nullptr)? -1 : jobs.getJobById(JID)->getPID();}
   int getJobJID(int PID) const{return jobs.getJIDByPID(PID);};
-
+  int getPid() const{return pid;}
+  void addTimedJob(int PID,int duration, const time_t& startingTime);
+  void setTimedJob(int duration){currentTimedJobDuration = duration;}
+  int getDuration() const{return currentTimedJobDuration;}
+  TimedJob getTimedListHead() const{return TimedJobsList.front();}
+  std::string getJobCmdLine(int JID){return jobs.getCmd(JID);}
+  void popTimedJobsList(){TimedJobsList.pop_front();}
+  void removeFinishedTimedJobs();
 };
 
 #endif //SMASH_COMMAND_H_

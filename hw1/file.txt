@@ -1,0 +1,2 @@
+file.txt's type is “regular file” and takes up 0 bytes
+file.txt's type is “regular file” and takes up 59 bytes

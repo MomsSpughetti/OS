@@ -66,6 +66,7 @@ int _parseCommandLine(const char* cmd_line, char** args) {
 
   FUNC_EXIT()
 }
+static std::string createCmdLine(char** args,int start,int end);
 
 bool _isBackgroundComamnd(const char* cmd_line) {
   const string str(cmd_line);
@@ -89,7 +90,6 @@ void _removeBackgroundSign(char* cmd_line) {
   // truncate the command line string up to the last non-space character
   cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
-
 
 
 static bool isNum(const std::string& str){
@@ -300,6 +300,32 @@ void KillCommand::execute(){
   std::cerr<<"signal number "<<sigNum<<" was sent to pid " <<je->getPID()<<std::endl;
 }
 
+void ShowPidCommand::execute(){
+    SmallShell& smash = SmallShell::getInstance();
+    std::cout<<"smash pid is "<< ((child()) ? smash.getPid() : getpid()) << std::endl;
+}
+
+void TimeoutCommand::execute(){
+  char* args[COMMAND_MAX_ARGS];
+  
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
+  //TODO HANDLE ERRORS
+  if(argsNum < 2){
+    std::cerr<<"smash error: timeout: invalid arguments"<<std::endl;
+    return;
+  }
+  std::string cmdLine = createCmdLine(args,2,argsNum);
+  SmallShell& smash = SmallShell::getInstance();
+  if(!isNum(args[1])){
+    std::cerr<<"smash error: timeout: invalid arguments"<<std::endl;
+    return;
+  }
+  int duration = std::stoi(args[1]);
+  alarm(duration);
+  smash.setTimedJob(duration);
+  smash.executeCommand(cmdLine.c_str(),false,true);
+}
+
 /********************ExternalCommands********************/
 void ExternalCommand::execute(){
   std::string cmdLine = getCmdLine();
@@ -340,6 +366,9 @@ void ExternalCommand::execute(){
     }
   }
   if(PID > 0){
+    if(timed()){
+      smash.addTimedJob(PID, smash.getDuration(),time(nullptr));
+    }
     if(bg){
       smash.addJob(PID,getCmdLine());
     }
@@ -448,7 +477,16 @@ PipeCommand::PipeCommand(const char * cmd_line) : Command(cmd_line){
   signPlace = (i == 0 || i == argsNum - 1)? -1 : i;
   this->cmd1 = cmd1NoBSign;
   this->cmd2 = cmd2NoBSign;
+}
+
+
+static bool runsOnSmash(const std::string& cmd){
+  if(cmd == "chprompt" || cmd =="showpid" || cmd == "fg" || cmd == "bg" || cmd == "cd" || cmd == "jobs" || cmd == "quit"){
+    return true;
+    //TODO add the rest
   }
+  return false;
+}
 
 void PipeCommand::execute()
 {
@@ -471,20 +509,17 @@ void PipeCommand::execute()
   }
 
   SmallShell& smash=SmallShell::getInstance();
-  
-
   int PID = fork();
-  setpgrp();
   if (PID == 0) {
-    // first child 
+    // first child
+    setpgrp(); 
     dup2(fd[1],channel);
     close(fd[0]);
     close(fd[1]);
     //execv(args1[0], args1);
     smash.executeCommand(cmd1.c_str(),true);
   }
-
-  if (fork() == 0 && PID > 0) {
+  if (PID > 0 && fork() == 0) {
     setpgrp(); 
     // second child 
     dup2(fd[0],0);
@@ -508,15 +543,10 @@ void SetcoreCommand::execute(){
   }
 
   int coreNum = -1, JID;
-  try
-  {
-    coreNum = std::stoi(args[2]);
-    JID = std::stoi(args[1]);
-  }
-  catch(const std::out_of_range& e){
-    std::cerr << "smash error: setcore: invalid arguments" << endl;
-    return;
-  }
+
+  coreNum = std::stoi(args[2]);
+  JID = std::stoi(args[1]);
+
   if(!isNum(args[1]) || !isNum(args[2])){
     std::cerr << "smash error: setcore: invalid arguments" << endl;
     return;
@@ -707,7 +737,7 @@ void JobsList::removeFinishedJobs(){
   }
 }
 
-JobsList::JobEntry* JobsList::getJobById(int JID){
+JobsList::JobEntry* JobsList::getJobById(int JID) const{
   for(auto& job : jobs){
     if (job->getJID() == JID){
       return job;
@@ -759,8 +789,6 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *JIDptr){
   return nullptr;
 }
 
-
-
 int JobsList::getJIDByPID(int PID) const{
   for(auto& jobPtr : jobs){
     if(jobPtr->getPID() == PID){
@@ -770,18 +798,47 @@ int JobsList::getJIDByPID(int PID) const{
   return -1;
 }
 
-
-
 void SmallShell::addJob(int PID, const std::string& cmdLine, bool stop){
   jobs.addJob(cmdLine,PID,stop);
 }
+
+void SmallShell::addTimedJob(int PID,int duration, const time_t& startingTime){
+  time_t finshingTime = duration + startingTime;
+  for(std::list<TimedJob>::iterator it = TimedJobsList.begin(); it != TimedJobsList.end();++it){
+      if(it->getFinisingTime() > finshingTime){
+        TimedJobsList.insert(it,TimedJob(PID,duration,startingTime));
+        return;
+      }
+  }
+  TimedJobsList.push_back(TimedJob(PID,duration,startingTime));
+}
+
+void SmallShell::removeFinishedTimedJobs(){
+  stack<int> toRmStack;
+  int status, pid;
+  do{
+    pid= waitpid(-1,nullptr,WNOHANG);
+    if(pid > 0){
+      toRmStack.push(pid);
+    }
+    else{
+      break;
+    }
+  }while(pid !=0);
+
+  while(!toRmStack.empty()){
+    TimedJobsList.remove_if([](TimedJob& job,const std::stack<int>& s){return job.getPID() == s.top();});
+    toRmStack.pop();
+  }
+}
+
 
 
 
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
-Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
+Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild, bool isTimed) {
   if(cmd_line == nullptr){
     return nullptr;
   }
@@ -801,6 +858,9 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if(firstWord.compare("chmod") == 0){
     return new ChmodCommand(builtInCmdLine);
   }
+  if(firstWord.compare("timeout") == 0){
+    return new TimeoutCommand(cmd_line);
+  }
   if(redirectionCommand == "|" || redirectionCommand == "|&"){
     return new PipeCommand(cmd_line);
   }
@@ -811,7 +871,7 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
     return new ChPromptCommand(builtInCmdLine);
   }
   if (firstWord.compare("showpid") == 0) {
-    return new ShowPidCommand(builtInCmdLine);
+    return new ShowPidCommand(builtInCmdLine,isChild);
   }
   if (firstWord.compare("pwd") == 0) {
     return new GetCurrDirCommand(builtInCmdLine);
@@ -843,14 +903,17 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if (firstWord.compare("chmod") == 0) {
     return new ChmodCommand(builtInCmdLine);
   }
-  return new ExternalCommand(cmd_line,isChild);
+  return new ExternalCommand(cmd_line,isChild,isTimed);
 }
 
-void SmallShell::executeCommand(const char *cmd_line, bool isChild) {
+void SmallShell::executeCommand(const char *cmd_line, bool isChild, bool isTimed) {
   jobs.removeFinishedJobs();
-  Command* cmd = CreateCommand(cmd_line,isChild);
+  Command* cmd = CreateCommand(cmd_line,isChild, isTimed);
   if(cmd != nullptr){
     cmd->execute();
+  }
+  if(cmd->child()){
+    quit();
   }
   delete cmd;
 }
