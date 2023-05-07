@@ -813,25 +813,6 @@ void SmallShell::addTimedJob(int PID,int duration, const time_t& startingTime){
   TimedJobsList.push_back(TimedJob(PID,duration,startingTime));
 }
 
-void SmallShell::removeFinishedTimedJobs(){
-  stack<int> toRmStack;
-  int status, pid;
-  do{
-    pid= waitpid(-1,nullptr,WNOHANG);
-    if(pid > 0){
-      toRmStack.push(pid);
-    }
-    else{
-      break;
-    }
-  }while(pid !=0);
-
-  while(!toRmStack.empty()){
-    TimedJobsList.remove_if([](TimedJob& job,const std::stack<int>& s){return job.getPID() == s.top();});
-    toRmStack.pop();
-  }
-}
-
 
 
 
