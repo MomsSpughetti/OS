@@ -326,7 +326,6 @@ void ExternalCommand::execute(){
   }
 
   if(PID == 0){
-    setpgrp();
     if(isComplexCommand(cmdLine)){
         if(execlp("/bin/bash","/bin/bash","-c",cmdLine.c_str(),nullptr) == -1){
           perror("smash error: execlp failed");
@@ -478,7 +477,7 @@ void PipeCommand::execute()
     close(fd[1]);
     smash.executeCommand(cmd1.c_str(),true);
   }
-  int PID2 = (PID1 == 0) ? -1 : fork();
+  int PID2 =(PID1 == 0) ? -1 : fork(); 
   if (PID2 == 0) {
     setpgrp(); 
     dup2(fd[0],0);
@@ -486,9 +485,11 @@ void PipeCommand::execute()
     close(fd[1]);
     smash.executeCommand(cmd2.c_str(),true);
   }
-  
-  close(fd[0]);
-  close(fd[1]);
+  if(PID2 > 0){
+    close(fd[0]);
+    close(fd[1]);
+    waitpid(PID2, nullptr, 0);
+  }
   }
 
 void SetcoreCommand::execute(){
