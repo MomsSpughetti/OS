@@ -1,0 +1,42 @@
+smash> smash> smash> smash> test_redirect> new
+smash> smash> again_redirect> new
+smash> smash> test_redirect>> new
+smash> smash> smash> smash> smash> smash> smash> smash pid is 1
+smash pid is 1
+smash> mypid
+smash> smash> smash> [1] sleep 100& : 2 X secs
+smash> smash> smash> smash> smash> k
+mypid
+s
+t
+smash> smash> k
+mypid
+p
+s
+t
+smash> k
+mypid
+p
+s
+t
+smash> smash> smash> before
+smash> smash> smash> smash> smash> k
+mypid
+p
+s
+t
+smash> smash> smash> k
+mypid
+p
+s
+t
+smash> smash> smash> smash> k
+mypid
+p
+s
+t
+smash> smash> smash> smash> smash> smash> smash> smash> 0
+2
+end: 4
+smash> smash> smash> smash: sending SIGKILL signal to 1 jobs:
+2: sleep 100&

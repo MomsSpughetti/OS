@@ -1,0 +1,7 @@
+tail tail.file
+tail -2 tail.file
+tail -5 tail.file
+tail -10 tail.file
+tail -12 tail.file
+tail -0 tail.file
+quit

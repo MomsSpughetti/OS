@@ -1,0 +1,6 @@
+smash error: kill: invalid arguments
+smash error: kill: job-id -1 does not exist
+smash error: kill: invalid arguments
+smash error: kill: job-id 1 does not exist
+terminate called after throwing an instance of 'std::invalid_argument'
+  what():  stoi

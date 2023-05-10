@@ -1,0 +1,20 @@
+cat: new: No such file or directory
+cat: new: No such file or directory
+cat: new: No such file or directory
+cat: mypid: No such file or directory
+cat: mypid: No such file or directory
+smash error: kill: invalid arguments
+cat: t: No such file or directory
+smash error: kill: invalid arguments
+ls: cannot access '>/tmp/smash/test/new': No such file or directory
+ls: write error: Bad file descriptor
+cat: new: No such file or directory
+smash error: chmod failed
+smash error: execvp failed: No such file or directory
+cat: new: No such file or directory
+rm: cannot remove 'new': No such file or directory
+smash error: execvp failed: No such file or directory
+cat: new: No such file or directory
+rm: cannot remove 'new': No such file or directory
+ls: cannot access '>new': No such file or directory
+cat: new: No such file or directory

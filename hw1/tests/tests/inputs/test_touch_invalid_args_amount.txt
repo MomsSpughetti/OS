@@ -1,0 +1,3 @@
+touch
+touch touch.file
+quit

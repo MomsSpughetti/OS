@@ -1,0 +1,7 @@
+tail tail_new_line.file
+tail -2 tail_new_line.file
+tail -5 tail_new_line.file
+tail -10 tail_new_line.file
+tail -12 tail_new_line.file
+tail -0 tail_new_line.file
+quit

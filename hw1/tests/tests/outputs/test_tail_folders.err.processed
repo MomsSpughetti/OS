@@ -1,0 +1,2 @@
+tail: error reading '..': Is a directory
+tail: cannot open '~' for reading: No such file or directory

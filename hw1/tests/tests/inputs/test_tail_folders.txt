@@ -1,0 +1,4 @@
+echo test by Gilad F
+tail ..
+tail -5 ~
+quit
