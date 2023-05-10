@@ -290,13 +290,13 @@ void KillCommand::execute(){
   int sigNum = UNINITIALIZED;
   int JID = UNINITIALIZED;
 
-  try{
-    sigNum = std::stoi(sigStr.substr(1,sigStr.size()+1));
-    JID = std::stoi(args[2]);
-  }catch(const std::out_of_range&){
+  if(!isNum(sigStr.substr(1,sigStr.size()+1))){
     std::cerr<<"smash error: kill: invalid arguments"<<std::endl;
     return;
   }
+  sigNum = std::stoi(sigStr.substr(1,sigStr.size()+1));
+  JID = std::stoi(args[2]);
+  
   JobsList::JobEntry* je = jobsPtr->getJobById(JID);
   if(je == nullptr){
     std::cerr<<"smash error: kill: job-id "<<JID<<" does not exist"<<std::endl;
@@ -329,8 +329,15 @@ void ExternalCommand::execute(){
   }
   else{
     PID = fork();
+    if(PID == -1){
+      perror("smash error: fork failed");
+      return;
+    }
     if(PID == 0){
-      setpgrp();
+      if(setpgrp() == -1){
+        perror("smash error: setpgrp failed");
+        return;
+      }
     }
   }
 
@@ -414,15 +421,29 @@ void RedirectionCommand::execute(){
   std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
   int PID = fork();
   if(PID == 0){
-    setpgrp();
-    close(STDOUT_FILENO);
+    if(setpgrp() == -1){
+      perror("smash error: setpgrp failed");
+      return;
+    }
+    if(close(STDOUT_FILENO)){
+      perror("smash error: close failed");
+      return;
+    }
     if(redirectionCommand == ">"){
-      open(cmd2.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0777); //TODO Do we need to clean the file?
+      if(open(cmd2.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0655) == -1){
+        perror("smash error: open failed");
+        return;
+      } //TODO Do we need to clean the file?
     }
     else{//redirection == ">>"
-      open(cmd2.c_str(),O_RDWR | O_CREAT | O_APPEND, 0777);
+      if(open(cmd2.c_str(),O_RDWR | O_CREAT | O_APPEND, 0655) == -1){
+        perror("smash error: open failed");
+        return;
+      }
     }
     smash.executeCommand(cmd1.c_str(),true);
+  }else{
+    waitpid(PID,nullptr, 0);
   }
 }
 
@@ -480,23 +501,53 @@ void PipeCommand::execute()
   SmallShell& smash=SmallShell::getInstance();
   int PID1 = fork();
   if (PID1 == 0) {
-    setpgrp();
-    dup2(fd[1],channel);
-    close(fd[0]);
-    close(fd[1]);
+    if(setpgrp() == -1){
+      perror("smash error: setpgrp failed");
+      return;
+    }
+    if(dup2(fd[1],channel) == -1){
+      perror("smash error: dup2 failed");
+      return;
+    }
+    if(close(fd[0]) == -1){
+      perror("smash error: close failed");
+       return;
+    }
+    if(close(fd[1]) == -1){
+      perror("smash error: close failed");
+       return;
+    }
     smash.executeCommand(cmd1.c_str(),true);
   }
   int PID2 =(PID1 == 0) ? -1 : fork(); 
   if (PID2 == 0) {
-    setpgrp(); 
-    dup2(fd[0],0);
-    close(fd[0]);
-    close(fd[1]);
+    if(setpgrp() == -1){
+      perror("smash error: setpgrp failed");
+      return;
+    }
+    if(dup2(fd[0],0) == -1){
+      perror("smash error: dup2 failed");
+      return;
+    }
+    if(close(fd[0]) == -1){
+      perror("smash error: close failed");
+       return;
+    }
+    if(close(fd[1]) == -1){
+      perror("smash error: close failed");
+       return;
+    }    
     smash.executeCommand(cmd2.c_str(),true);
   }
   if(PID2 > 0){
-    close(fd[0]);
-    close(fd[1]);
+    if(close(fd[0]) == -1){
+      perror("smash error: close failed");
+       return;
+    }
+    if(close(fd[1]) == -1){
+      perror("smash error: close failed");
+       return;
+    }  
     waitpid(PID2, nullptr, 0);
   }
   }
@@ -514,9 +565,13 @@ void SetcoreCommand::execute(){
     std::cerr << "smash error: setcore: invalid arguments" << endl;
     return;
   }
+  
   int coreNum = std::stoi(args[2]);
   int JID = std::stoi(args[1]);
-
+  if(sysconf(_SC_NPROCESSORS_ONLN)<=coreNum){
+    std::cerr << "smash error: setcore: invalid core number" << endl;
+    return;
+  }
   //get the PID of the process with JID
   SmallShell& smash = SmallShell::getInstance();
   int PID = smash.getJobPID(JID);
@@ -525,10 +580,10 @@ void SetcoreCommand::execute(){
     std::cerr << "smash error: setcore: job-id "<< JID <<" does not exist" << endl;
     return;
   }
-
+ 
   cpu_set_t cpuSet;
   CPU_ZERO(&cpuSet); // clear the set of CPUs
-  CPU_SET(coreNum, &cpuSet); // add CPU core 1 to the set
+  CPU_SET(coreNum, &cpuSet); 
   if(sched_setaffinity(PID, sizeof(cpuSet), &cpuSet) == -1){
        perror("smash error: sched_setaffinity failed");
        return;
@@ -540,10 +595,14 @@ void GetFileTypeCommand::execute(){
   int argsNum = _parseCommandLine(this->getCmdLine().c_str(), args);
   struct stat file_stat;
 
-  if(argsNum != 2 || stat(args[1], &file_stat) != 0){
+  if(argsNum != 2){
     std::cerr << "smash error: gettype: invalid aruments" << endl;
     return;
   } 
+  if(stat(args[1], &file_stat) == -1){
+    perror("smash error: stat failed");
+    return;
+  }
 
   std::string type_;
 
@@ -613,15 +672,14 @@ void ChmodCommand::execute(){
     std::cerr << "smash error: chmod: invalid aruments";
     return;
    }
-   //check is valid
    
   int mod = std::stoi(args[1]);
    
-
   mode_t modi = int_to_mod(mod);
   int chmodResult = chmod(args[2], modi);
-  if(chmodResult != 0){
-    std::cerr << "smash error: chmod failed" << endl;
+  if(chmodResult == -1){
+    perror("smash error: chmod failed");
+    return;
   }
 }
 
