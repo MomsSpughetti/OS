@@ -9,7 +9,7 @@
 #include <list>
 #include <time.h>
 #include <unistd.h>
-
+#include <exception>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 
@@ -232,6 +232,7 @@ class SmallShell {
   bool isChild;
   int currentProcess;
 
+  class GetpidFailed : public std::exception{};
   SmallShell() : PID(getpid()),shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),finished(false),currentProcess(-1){}
  public:
   std::string getName() const{return shellName;}

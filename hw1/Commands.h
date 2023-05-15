@@ -9,7 +9,8 @@
 #include <list>
 #include <time.h>
 #include <unistd.h>
-
+#include <exception>
+#include <algorithm>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 
@@ -34,10 +35,12 @@ class BuiltInCommand : public Command {
 };
 
 class ExternalCommand : public Command { 
+  bool isTimed;
  public:
-  ExternalCommand(const char* cmd_line, bool isChild = false): Command(cmd_line,isChild){}
+  ExternalCommand(const char* cmd_line, bool isChild = false,bool isTimed = false): Command(cmd_line,isChild),isTimed(isTimed){}
   virtual ~ExternalCommand() = default;
   void execute() override;
+  bool timed()const {return isTimed;}
 };
 
 class PipeCommand : public Command {
@@ -105,6 +108,7 @@ class JobsList {
     bool isStopped;
     friend class JobsList;
     time_t startingTime;
+ 
    public:
     JobEntry(int JID,int PID, const std::string& cmdLine, bool isStopped = false)
      : JID(JID),PID(PID),cmdLine(cmdLine),isStopped(isStopped){}
@@ -129,7 +133,7 @@ class JobsList {
   void printForQuit();
   void killAllJobs();
   void removeFinishedJobs();
-  JobEntry* getJobById(int jobId);
+  JobEntry* getJobById(int jobId) const;
   void removeJobById(int jobId);
   JobEntry * getLastJob(int* lastJobId);
   JobEntry *getLastStoppedJob(int *jobId);
@@ -139,6 +143,7 @@ class JobsList {
   void quit();
   int getJIDByPID(int PID) const;
   void stopJob(int PID){for(auto& jPtr : jobs){if(jPtr->getPID()== PID) jPtr->stop();}}
+  std::string getCmd(int JID) const{return getJobById(JID)->getCmd();}
   // TODO: Add extra methods or modify exisitng ones as needed
 
 };
@@ -175,7 +180,7 @@ class TimeoutCommand : public BuiltInCommand {
 // TODO: Add your data members
  public:
   explicit TimeoutCommand(const char* cmd_line, bool isChild = false): BuiltInCommand(cmd_line,isChild){}
-  virtual ~TimeoutCommand() {}
+  virtual ~TimeoutCommand() =default;
   void execute() override;
 };
 
@@ -218,6 +223,25 @@ class JobsCommand : public BuiltInCommand{
   virtual ~JobsCommand() = default;
   void execute() override;
 };
+class TimedJob{
+private:
+  int PID;
+  int duration;
+  time_t startingTime;
+  std::string cmdLine;
+  bool finished;
+public:
+  TimedJob(int PID, int duration,const time_t& startingTime,const std::string& cmdLine,bool finished = false)
+   : PID(PID), duration(duration),startingTime(startingTime), cmdLine(cmdLine),finished(finished){}
+  time_t getFinisingTime() const{
+    return startingTime + time_t(duration);
+  }
+  int getPID() const{return PID;}
+  int getDuration() const{return duration;}
+  std::string getCmdLine() const{return cmdLine;}
+  void finish(){finished = true;}
+  bool isFinished() const{return finished;}
+};
 
 
 
@@ -228,15 +252,18 @@ class SmallShell {
   std::string lastDir;
   std::string currentCmdLine;
   JobsList jobs;
+  std::list<TimedJob> TimedJobsList;
   bool finished;
   bool isChild;
+  bool runningFgCmd;
   int currentProcess;
+  int currentTimedJobDuration;
 
-  SmallShell() : PID(getpid()),shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),finished(false),currentProcess(-1){}
+  SmallShell() : PID(getpid()),shellName("smash"),lastDir(""),currentCmdLine(""),jobs(),TimedJobsList(),finished(false),isChild(false),runningFgCmd(false),currentProcess(-1),currentTimedJobDuration(-1){}
  public:
   std::string getName() const{return shellName;}
   void setName(const std::string& newName){shellName = newName;}
-  Command *CreateCommand(const char* cmd_line, bool isChild =false);
+  Command *CreateCommand(const char* cmd_line, bool isChild =false, bool isTimed = false);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
   void operator=(SmallShell const&)  = delete; // disable = operator
   void setChild(){isChild = true;}
@@ -253,7 +280,7 @@ class SmallShell {
     return instance;
   }
   ~SmallShell() = default;
-  void executeCommand(const char* cmd_line, bool isChild =false);
+  void executeCommand(const char* cmd_line, bool isChild =false,bool isTimed = false);
   // TODO: add extra methods as needed
 
   /**********CD-Functions***********/
@@ -269,7 +296,19 @@ class SmallShell {
   int getJobJID(int PID) const{return jobs.getJIDByPID(PID);};
   int getPID() const {return PID;}
   void stopJob(int PID){jobs.stopJob(PID);}
+  void addTimedJob(int PID,int duration, const time_t& startingTime,const std::string& cmdLine);
+  void setTimedJob(int duration){currentTimedJobDuration = duration;}
+  int getDuration() const{return currentTimedJobDuration;}
+  TimedJob getTimedListHead() const{return TimedJobsList.front();}
+  std::string getJobCmdLine(int JID){return jobs.getCmd(JID);}
+  void popTimedJobsList(){if(TimedJobsList.size()!= 0) TimedJobsList.pop_front();}
+  int TimedJobsNum() const{return TimedJobsList.size();}
+  bool isFg() const {return runningFgCmd;}
+  void runFg(){runningFgCmd = true;}
+  void terminateFg(){runningFgCmd = false;}
+  std::string getTimedJobCmd(const TimedJob& job){return job.getCmdLine(); }
+  void setFinished(int PID){for(auto& job : TimedJobsList){if(job.getPID() == PID){job.finish();}}}
 };
-
+bool isBuiltIn(const std::string&);
 #endif //SMASH_COMMAND_H_
 

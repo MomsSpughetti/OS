@@ -125,7 +125,17 @@ static bool isComplexCommand(const std::string& cmdLine){
 
 void ShowPidCommand::execute(){
     SmallShell& smash = SmallShell::getInstance();
-    std::cout<<"smash pid is "<< ((child()) ? smash.getPID() : getpid()) << std::endl;
+    if(child()){
+      std::cout<<"smash pid is "<<smash.getPID()<< std::endl;
+    }
+    else{
+      int PID = getpid();
+      if(PID == -1){
+        perror("smash error: getpid failed");
+        return;
+      }
+      std::cout<<"smash pid is "<< PID << std::endl;
+    }
 }
 
 void ChPromptCommand::execute(){
@@ -208,11 +218,15 @@ void ForegroundCommand::execute(){
     perror("smash error: kill failed");
     return;
   }
- 
+  
   std::cout<<targetCmdLine<<" : "<<targetPID<<std::endl;
+  int status;
   smash.setCurrentProcess(targetPID);
   smash.setCurrentCommand(smash.getCurrentCommand());
-  waitpid(targetPID,nullptr,WUNTRACED);
+  waitpid(targetPID,&status,WUNTRACED);
+  if(WIFEXITED(status)){
+    smash.removeJob(targetJID);
+  }
   smash.setCurrentProcess(-1);
   smash.setCurrentCommand("");
   //check if second argument is a number
@@ -419,6 +433,14 @@ void RedirectionCommand::execute(){
   SmallShell& smash=SmallShell::getInstance();
   std::string cmd1 = createCmdLine(args,0,i);
   std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
+  char cmdNoBg1[cmd1.size()+1];
+  char cmdNoBg2[cmd2.size()+1];
+  strcpy(cmdNoBg1,cmd1.c_str());
+  strcpy(cmdNoBg2,cmd2.c_str());
+  _removeBackgroundSign(cmdNoBg1);
+  _removeBackgroundSign(cmdNoBg2);
+  cmd1= cmdNoBg1;
+  cmd2 = cmdNoBg2;
   int PID = fork();
   if(PID == 0){
     if(setpgrp() == -1){
@@ -736,7 +758,7 @@ void JobsList::printForQuit(){
 
 void JobsList::removeFinishedJobs(){
   stack<int> toRmStack;
-  int status, pid;
+  int pid;
   do{
     pid= waitpid(-1,nullptr,WNOHANG);
     if(pid > 0){
@@ -865,9 +887,6 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
     return new RedirectionCommand(cmd_line);
   }
   
-  if(firstWord.compare("chmod") == 0){
-    return new ChmodCommand(builtInCmdLine);
-  }
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
   }

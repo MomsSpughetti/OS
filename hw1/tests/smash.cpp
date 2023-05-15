@@ -15,6 +15,10 @@ int main(int argc, char* argv[]) {
     }
 
     SmallShell& smash = SmallShell::getInstance();
+    if(smash.getPID() == -1){
+        perror("smash error: getpid failed");
+        return 0;
+    }
     while(true) {
         std::cout << smash.getName()<<"> ";
         std::string cmd_line;
