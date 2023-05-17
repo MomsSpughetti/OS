@@ -1,0 +1,24 @@
+smash> smash> smash> smash> test_redirect> new
+smash> smash> again_redirect> new
+smash> smash> test_redirect>> new
+smash> smash> smash> smash pid is 9249
+smash> smash> smash pid is 9249
+smash pid is 9249
+smash> smash> smash pid is 9249
+smash> mypid
+smash> smash> smash> [1] sleep 100& : 9290 0 secs
+smash> smash> smash> smash> smash> k
+mypid
+s
+t
+smash> smash> k
+mypid
+p
+s
+t
+smash> k
+mypid
+p
+s
+t
+smash> 

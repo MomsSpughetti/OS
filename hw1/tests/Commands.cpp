@@ -90,7 +90,11 @@ void _removeBackgroundSign(char* cmd_line) {
   cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
 
-
+bool isBuiltIn(const std::string& str){
+  return (str=="chmod"||str=="cd"||str=="showpid"||str=="bg"||str=="fg"||
+          str=="pwd"||str == "setcore"||str=="kill"||str=="quit"||str=="jobs"||
+          str=="chprompt");
+}
 
 static bool isNum(const std::string& str){
   int i=0;
@@ -222,11 +226,13 @@ void ForegroundCommand::execute(){
   std::cout<<targetCmdLine<<" : "<<targetPID<<std::endl;
   int status;
   smash.setCurrentProcess(targetPID);
-  smash.setCurrentCommand(smash.getCurrentCommand());
+  smash.setCurrentCommand(targetCmdLine);
+  smash.runFg();
   waitpid(targetPID,&status,WUNTRACED);
   if(WIFEXITED(status)){
     smash.removeJob(targetJID);
   }
+  smash.terminateFg();
   smash.setCurrentProcess(-1);
   smash.setCurrentCommand("");
   //check if second argument is a number
@@ -338,6 +344,7 @@ void ExternalCommand::execute(){
   int argsNum = _parseCommandLine(cmdNoBg,args);
   SmallShell& smash = SmallShell::getInstance();
   int PID;
+  std::string timedCmd = timed() ? "timeout "+ std::to_string(smash.getDuration())+" "+cmdLine : cmdLine;
   if(child()){
     PID=0;
   }
@@ -372,12 +379,15 @@ void ExternalCommand::execute(){
     }
   }
   if(PID > 0){
+    if(timed()){
+      smash.addTimedJob(PID, smash.getDuration(),time(nullptr),timedCmd);
+    }
     if(bg){
-      smash.addJob(PID,getCmdLine());
+      smash.addJob(PID,timedCmd);
     }
     else{
       smash.setCurrentProcess(PID);
-      smash.setCurrentCommand(cmdLine);
+      smash.setCurrentCommand(timedCmd);
       waitpid(PID,nullptr,WUNTRACED);
       smash.setCurrentProcess(-1);
       smash.setCurrentCommand("");
@@ -705,6 +715,31 @@ void ChmodCommand::execute(){
   }
 }
 
+void TimeoutCommand::execute(){
+  char* args[COMMAND_MAX_ARGS];
+  int argsNum = _parseCommandLine(this->getCmdLine().c_str(),args);
+  //TODO HANDLE ERRORS
+  if(argsNum < 2){
+    std::cerr<<"smash error: timeout: invalid arguments"<<std::endl;
+    return;
+  }
+  std::string cmdLine = createCmdLine(args,2,argsNum);
+  SmallShell& smash = SmallShell::getInstance();
+  if(!isNum(args[1])){
+    std::cerr<<"smash error: timeout: invalid arguments"<<std::endl;
+    return;
+  }
+  int duration = std::stoi(args[1]);
+  time_t finishingTime = duration +time(nullptr);
+  time_t oldFinishingTime = (smash.TimedJobsNum()!=0) ? smash.getTimedListHead().getFinisingTime() : finishingTime +1; 
+  if(finishingTime < oldFinishingTime){
+    if(alarm(duration) == -1){
+      perror("smash error: alarm failed");
+    }
+  }
+  smash.setTimedJob(duration);
+  smash.executeCommand(cmdLine.c_str(),false,true);
+}
 
 /****************************Jobs****************************/
 int JobsList::findMaxJID() const{
@@ -758,9 +793,10 @@ void JobsList::printForQuit(){
 
 void JobsList::removeFinishedJobs(){
   stack<int> toRmStack;
+  SmallShell& smash = SmallShell::getInstance();
   int pid;
   do{
-    pid= waitpid(-1,nullptr,WNOHANG);
+    pid = waitpid(-1,nullptr,WNOHANG);
     if(pid > 0){
       toRmStack.push(getJIDByPID(pid));
     }
@@ -768,14 +804,13 @@ void JobsList::removeFinishedJobs(){
       break;
     }
   }while(pid !=0);
-
   while(!toRmStack.empty()){
     removeJobById(toRmStack.top());
     toRmStack.pop();
   }
 }
 
-JobsList::JobEntry* JobsList::getJobById(int JID){
+JobsList::JobEntry* JobsList::getJobById(int JID) const{
   for(auto& job : jobs){
     if (job->getJID() == JID){
       return job;
@@ -792,8 +827,10 @@ void JobsList::quit(){
 }
 
 void JobsList::removeJobById(int JID){
+  SmallShell& smash = SmallShell::getInstance();
   for (std::list<JobEntry*>::iterator it = jobs.begin(); it != jobs.end(); ++it){
     if((*it)->getJID() == JID){
+      smash.setFinished((*it)->getPID());
       jobs.erase(it);
       delete *it;
       maxJID = findMaxJID();
@@ -844,9 +881,20 @@ void SmallShell::addJob(int PID, const std::string& cmdLine, bool stop){
   jobs.addJob(cmdLine,PID,stop);
 }
 
+void SmallShell::addTimedJob(int PID,int duration, const time_t& startingTime,const std::string& cmdLine){
+  time_t finshingTime = duration + startingTime;
+  for(std::list<TimedJob>::iterator it = TimedJobsList.begin(); it != TimedJobsList.end();++it){
+      if(it->getFinisingTime() > finshingTime){
+        TimedJobsList.insert(it,TimedJob(PID,duration,startingTime,cmdLine));
+        return;
+      }
+  }
+  TimedJobsList.push_back(TimedJob(PID,duration,startingTime,cmdLine));
+}
 
 
-bool isEmptyLine(const char* cmdLine){
+
+static bool isEmptyLine(const char* cmdLine){
   while(*cmdLine != '\0'){
     if(!isspace(*cmdLine)){
       return false;
@@ -859,7 +907,7 @@ bool isEmptyLine(const char* cmdLine){
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
-Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
+Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild,bool isTimed) {
   if(cmd_line == nullptr || isEmptyLine(cmd_line)){
     return nullptr;
   }
@@ -879,14 +927,15 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if(isChild){
     smash.setChild();
   }
-  
+  if(isTimed && isBuiltIn(firstWord)){
+      smash.addTimedJob(-1,getDuration(),time(nullptr),firstWord);
+  }
   if(redirectionCommand == "|" || redirectionCommand == "|&"){
     return new PipeCommand(cmd_line);
   }
   if(redirectionCommand == ">" || redirectionCommand == ">>" ){
     return new RedirectionCommand(cmd_line);
   }
-  
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromptCommand(builtInCmdLine);
   }
@@ -902,7 +951,7 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if (firstWord.compare("jobs") == 0) {
     return new JobsCommand(builtInCmdLine,&jobs);
   }
-  if (firstWord.compare("fg") == 0) {
+  if (firstWord.compare("fg") == 0){
     return new ForegroundCommand(builtInCmdLine,&jobs);
   }
   if (firstWord.compare("bg") == 0) {
@@ -923,12 +972,15 @@ Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild) {
   if (firstWord.compare("chmod") == 0) {
     return new ChmodCommand(builtInCmdLine);
   }
-  return new ExternalCommand(cmd_line,isChild);
+  if (firstWord.compare("timeout") == 0){
+    return new TimeoutCommand(cmd_line);
+  }
+  return new ExternalCommand(cmd_line,isChild,isTimed);
 }
 
-void SmallShell::executeCommand(const char *cmd_line, bool isChild) {
+void SmallShell::executeCommand(const char *cmd_line, bool isChild,bool isTimed) {
   jobs.removeFinishedJobs();
-  Command* cmd = CreateCommand(cmd_line,isChild);
+  Command* cmd = CreateCommand(cmd_line,isChild,isTimed);
   if(cmd != nullptr){
     cmd->execute();
   }

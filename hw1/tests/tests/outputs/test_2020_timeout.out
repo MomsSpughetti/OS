@@ -1,0 +1,8 @@
+smash> smash> smash> smash> smash pid is 9271
+smash> timeout_sample_file1.txt
+timeout_sample_file2.txt
+smash> before
+smash> after
+smash> 0
+end: 2
+smash> 

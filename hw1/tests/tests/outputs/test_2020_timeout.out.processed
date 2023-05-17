@@ -1,4 +1,5 @@
-smash> smash> smash> smash> smash> timeout_sample_file1.txt
+smash> smash> smash> smash> smash pid is 1
+smash> timeout_sample_file1.txt
 timeout_sample_file2.txt
 smash> before
 smash> after
@@ -7,18 +8,30 @@ end: 2
 smash> after
 smash> 0
 2
+end: 4
 smash> smash: got ctrl-C
 smash> smash> 0
 [1] timeout 3 ../my_sleep 4 & : 2 X secs
 smash> 2
+end: 4
 smash: got ctrl-C
-smash> smash> smash> smash> smash> smash: got ctrl-C
-smash> smash> smash> smash> [1] timeout 5 sleep 100& : 3 X secs
-[2] timeout 4 sleep 200& : 4 X secs
-[3] timeout 2 sleep 300& : 5 X secs
-[4] timeout 7 sleep 400& : 6 X secs
-smash> smash> smash> smash: got ctrl-C
-smash: process 7 was killed
+smash> smash> smash> smash> smash: got ctrl-C
+smash: process 3 was killed
+smash> smash> smash> smash> smash> [1] timeout 7 sleep 15& : 4 X secs
+[2] timeout 5 sleep 100& : 5 X secs
+[3] timeout 4 sleep 200& : 6 X secs
+[4] timeout 2 sleep 300& : 7 X secs
+[5] timeout 7 sleep 400& : 8 X secs
+smash> [2] timeout 5 sleep 100& : 5 X secs
+[3] timeout 4 sleep 200& : 6 X secs
+[4] timeout 2 sleep 300& : 7 X secs
+[5] timeout 7 sleep 400& : 8 X secs
 smash> smash> smash: got ctrl-C
-smash: process 8 was killed
-smash> smash: sending SIGKILL signal to 0 jobs:
+smash: process 9 was killed
+smash> smash> smash: got ctrl-C
+smash: process 10 was killed
+smash> smash: sending SIGKILL signal to 4 jobs:
+5: timeout 5 sleep 100&
+6: timeout 4 sleep 200&
+7: timeout 2 sleep 300&
+8: timeout 7 sleep 400&
