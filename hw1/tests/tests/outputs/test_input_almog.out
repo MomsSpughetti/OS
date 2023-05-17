@@ -1,9 +1,0 @@
-smash> smash: got ctrl-Z
-smash: process 9638 was stopped
-smash> [1] sleep 10 : 9638 0 secs (stopped)
-smash> sleep 10 : 9638
-smash> [1] sleep 10 : 9638 0 secs
-smash> sleep 10 : 9638
-smash: got ctrl-C
-smash: process 9638 was killed
-smash> smash: sending SIGKILL signal to 0 jobs:

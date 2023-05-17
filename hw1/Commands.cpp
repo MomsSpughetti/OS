@@ -452,7 +452,12 @@ void RedirectionCommand::execute(){
   cmd1= cmdNoBg1;
   cmd2 = cmdNoBg2;
   int PID = fork();
+  if(PID == -1){
+    perror("smash error: fork failed");
+    return;
+  }
   if(PID == 0){
+    smash.setChild();
     if(setpgrp() == -1){
       perror("smash error: setpgrp failed");
       return;
@@ -532,7 +537,12 @@ void PipeCommand::execute()
 
   SmallShell& smash=SmallShell::getInstance();
   int PID1 = fork();
+  if(PID1 == -1){
+    perror("smash error: fork failed");
+    return;
+  }
   if (PID1 == 0) {
+    smash.setChild();
     if(setpgrp() == -1){
       perror("smash error: setpgrp failed");
       return;
@@ -543,7 +553,7 @@ void PipeCommand::execute()
     }
     if(close(fd[0]) == -1){
       perror("smash error: close failed");
-       return;
+      return;
     }
     if(close(fd[1]) == -1){
       perror("smash error: close failed");
@@ -551,8 +561,13 @@ void PipeCommand::execute()
     }
     smash.executeCommand(cmd1.c_str(),true);
   }
-  int PID2 =(PID1 == 0) ? -1 : fork(); 
+  int PID2 = (PID1 == 0) ? -2 : fork();
+  if(PID2 == -1){
+    perror("smash error: fork failed");
+    return;
+  } 
   if (PID2 == 0) {
+    smash.setChild();
     if(setpgrp() == -1){
       perror("smash error: setpgrp failed");
       return;
@@ -628,7 +643,7 @@ void GetFileTypeCommand::execute(){
   struct stat file_stat;
 
   if(argsNum != 2){
-    std::cerr << "smash error: gettype: invalid aruments" << endl;
+    std::cerr << "smash error: getfiletype: invalid arguments" << endl;
     return;
   } 
   if(stat(args[1], &file_stat) == -1){
@@ -899,6 +914,7 @@ static bool isEmptyLine(const char* cmdLine){
     if(!isspace(*cmdLine)){
       return false;
     }
+    cmdLine++;
   }
   return true;
 }
@@ -908,9 +924,10 @@ static bool isEmptyLine(const char* cmdLine){
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command* SmallShell::CreateCommand(const char* cmd_line, bool isChild,bool isTimed) {
+ 
   if(cmd_line == nullptr || isEmptyLine(cmd_line)){
     return nullptr;
-  }
+  } 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   char builtInCmdLine[strlen(cmd_line)+1];

@@ -47,7 +47,7 @@ void alarmHandler(int sig_num) {
     int JID = smash.getJobJID(PID);
     time_t finishingTime = toKill.getFinisingTime();
     if(finishingTime <= time(nullptr)){
-      if(toKill.isFinished() || waitpid(PID,&status,WNOHANG) > 0){
+      if(toKill.isFinished() || waitpid(PID,nullptr,WNOHANG) > 0){
         smash.removeJob(JID);
         smash.popTimedJobsList();
         continue;
