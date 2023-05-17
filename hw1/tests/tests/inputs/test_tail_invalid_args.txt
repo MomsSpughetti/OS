@@ -1,5 +1,0 @@
-tail
-tail 123 aaa
-tail bbb aaa
-tail ccc bbb aaa
-quit

@@ -1,3 +1,0 @@
-sleep 1000&
-sleep 1500&
-quit

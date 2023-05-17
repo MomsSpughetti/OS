@@ -1,8 +1,0 @@
-sleep 1
-jobs
-sleep 1&
-^4
-jobs
-sleep 100&
-jobs
-quit kill

@@ -1,8 +1,0 @@
-showpid >> test_redirection3.tmp
-showpid >> test_redirection3.tmp
-showpid >> test_redirection3.tmp
-showpid >> test_redirection3.tmp
-cat test_redirection3.tmp
-showpid > test_redirection3.tmp
-cat test_redirection3.tmp
-quit kill
