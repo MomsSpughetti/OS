@@ -27,7 +27,6 @@ void ctrlCHandler(int sig_num) {
   std::cout<<"smash: got ctrl-C"<<std::endl;
   SmallShell& smash = SmallShell::getInstance();
   int currentProcess = smash.getCurrentProcess();
-  int JID;
   if(currentProcess > 0){
     if(kill(currentProcess,SIGKILL) == -1){
       perror("smash error: kill failed");
@@ -73,9 +72,7 @@ void alarmHandler(int sig_num) {
   }
   time_t newDuration = (smash.TimedJobsNum()!=0) ? (smash.getTimedListHead().getFinisingTime() - time(nullptr)) : 0;
   if(newDuration != 0){
-    if(alarm(newDuration) == -1){
-      perror("smash error: alarm failed"); 
-    }
+    alarm(newDuration);
   }
 }
   

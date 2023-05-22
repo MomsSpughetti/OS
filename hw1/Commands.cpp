@@ -536,7 +536,6 @@ PipeCommand::PipeCommand(const char * cmd_line,bool isChild) : Command(cmd_line)
     int argsNum = _parseCommandLine(getCmdLine().c_str(),args);
     int i;
     std::string str = findRedirectionPip(args, argsNum, &i);
-    SmallShell& smash=SmallShell::getInstance();
 
     std::string cmd1 = createCmdLine(args,0,i);
     std::string cmd2 = createCmdLine(args,i+1,argsNum); //might need to change
@@ -816,9 +815,7 @@ void TimeoutCommand::execute(){
     time_t finishingTime = duration +time(nullptr);
     time_t oldFinishingTime = (smash.TimedJobsNum()!=0) ? smash.getTimedListHead().getFinisingTime() : finishingTime +1;
     if(finishingTime < oldFinishingTime){
-        if(alarm(duration) == -1){
-            perror("smash error: alarm failed");
-        }
+        alarm(duration);
     }
     smash.setTimedJob(duration);
     smash.executeCommand(cmdLine.c_str(),false,true);
@@ -876,7 +873,6 @@ void JobsList::printForQuit(){
 
 void JobsList::removeFinishedJobs(){
     stack<int> toRmStack;
-    SmallShell& smash = SmallShell::getInstance();
     int pid;
     do{
         pid = waitpid(-1,nullptr,WNOHANG);
