@@ -1,1 +1,0 @@
-/usr/bin/c++ -g CMakeFiles/OS.dir/hw1/Commands.cpp.o CMakeFiles/OS.dir/hw1/signals.cpp.o CMakeFiles/OS.dir/hw1/smash.cpp.o -o OS 

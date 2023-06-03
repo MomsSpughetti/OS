@@ -1,13 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
-project(OS)
+project(OS C)
 
-set(CMAKE_CXX_STANDARD 14)
-
-include_directories(hw1)
+set(CMAKE_C_STANDARD 99)
 
 add_executable(OS
-        hw1/Commands.cpp
-        hw1/Commands.h
-        hw1/signals.cpp
-        hw1/signals.h
-        hw1/smash.cpp)
+        hw3/server.c hw3/segel.c hw3/request.h hw3/request.c)
