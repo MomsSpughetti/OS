@@ -5,6 +5,141 @@
  **************************/
 /* $begin errorfuns */
 /* $begin unixerror */
+
+Queue *initQueue() {
+    Queue *newQueue = malloc(sizeof(Queue));
+    if (newQueue == NULL) {
+        return NULL;
+    }
+    newQueue->size = 0;
+    newQueue->head = newQueue->last = NULL;
+    return newQueue;
+}
+
+QueueStatus _push(Queue* queue,T val){
+    if(queue == NULL){
+        return NULL_ARG;
+    }
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    if(newNode == NULL){
+        return MALLOC_FAIL;
+    }
+    if(queue->head ==NULL){
+        queue->head =queue->last = newNode;
+
+    }else{
+        queue->last->next = newNode;
+        newNode->prev = queue->last;
+        queue->last = newNode;
+    }
+    newNode->next = NULL;
+    newNode->data = val;
+    queue->size++;
+    return SUCCESS;
+}
+
+
+T _pop(Queue* queue){
+    if(queue == NULL){
+        return -1;
+    }
+    if(queue->size == 0){ // a thread needs to sleep until the condition var is bigger than 0
+        return -1;
+    }
+    T val = queue->head->data;
+    if(queue->head == queue->last){ // N1->NULL => NULL
+        free(queue->head);
+        queue->head= queue->last = NULL;
+    }else{
+        Node* newHead = queue->head->next;
+        newHead->prev = NULL;
+        free(queue->head);
+        queue->head= newHead;
+    }
+    queue->size--;
+    return val;
+}
+
+QueueStatus destroyQueue(Queue* queue){
+    if(queue == NULL){
+        return NULL_ARG;
+    }
+    Node* curr = queue->head;
+    while(curr != NULL){
+        Node* temp = curr->next;
+        free(curr);
+        curr = temp;
+    }
+    return SUCCESS;
+}
+
+
+QueueStatus _deleteNode(Queue* queue,T data){
+    if(queue == NULL){
+        return NULL_ARG;
+    }
+    if(queue->head->data == data){
+        _pop(queue);
+        return SUCCESS;
+    }
+    Node* curr = queue->head;
+    while(curr !=NULL){
+        if(curr->data == data){
+            break;
+        }
+        curr=curr->next;
+    }
+    if(curr->next ==NULL){//the last
+        Node* newLast = queue->last->prev;
+        newLast->next = NULL;
+        free(queue->last);
+        queue->last= newLast;
+        return SUCCESS;
+    }
+    curr->prev->next = curr->next;
+    curr->next->prev = curr->prev;
+    free(curr);
+    return SUCCESS;
+}
+
+
+QueueStatus push(Queue* queue,T val,pthread_cond_t* c, pthread_mutex_t* m, int* condVar){
+    if(queue == NULL || c == NULL || m == NULL || condVar == NULL){
+        return NULL_ARG;
+    }
+    pthread_mutex_lock(m);
+    QueueStatus status = _push(queue, val);
+    (*condVar)++;
+    pthread_cond_signal(c);
+    pthread_mutex_unlock(m);
+    return status;
+}
+
+
+T pop(Queue* queue,pthread_cond_t* c, pthread_mutex_t* m, int* condVar){
+    if(queue == NULL || c == NULL || m == NULL || condVar == NULL){
+        return -1;
+    }
+    pthread_mutex_lock(m);
+    while(*condVar == 0) pthread_cond_wait(c,m);
+    T data = _pop(queue);
+    (*condVar)--;
+    pthread_mutex_unlock(m);
+    return data;
+}
+
+QueueStatus deleteNode(Queue* queue,T fd,pthread_cond_t* c, pthread_mutex_t* m, int* condVar){
+    if(queue == NULL || c == NULL || m == NULL || condVar == NULL){
+        return NULL_ARG;
+    }
+    pthread_mutex_lock(m);
+    while(*condVar == 0) pthread_cond_wait(c,m);
+    QueueStatus status = _deleteNode(queue,fd);
+    (*condVar)--;
+    pthread_mutex_unlock(m);
+    return status;
+}
+
 void unix_error(char *msg) /* unix-style error */
 {
     fprintf(stderr, "%s: %s\n", msg, strerror(errno));

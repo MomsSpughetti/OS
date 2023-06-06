@@ -1,7 +1,13 @@
-cmake_minimum_required(VERSION 3.22)
-project(OS C)
+cmake_minimum_required(VERSION 3.0)
+project(ServerClient)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 
-add_executable(OS
-        hw3/server.c hw3/segel.c hw3/request.h hw3/request.c)
+
+set(SOURCES
+        hw3/server.c
+        hw3/request.c
+        hw3/segel.c
+        hw3/client.c
+        hw3/output.c
+        )
