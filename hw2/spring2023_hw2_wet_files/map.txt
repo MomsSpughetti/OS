@@ -1,0 +1,33 @@
+steps:
+	add names to *.tbl
+	add functions to syscalls.h
+	add weight field to task_struct in include/linux/sched.h
+	initialize to 0 in include/linux/init_task.h
+	
+	now:
+		make son inherit weight from father by editing fork.c
+		how to get to the father process? so we can return the sum!
+		how to find childs and compare between them!
+		
+		
+		NOTES:
+			do not forget to edit makefile!!!!!!!!!
+	
+	page 14:
+	
+		Also bear in mind that you do not
+		control the process tree, meaning that other kernel functions may change it without
+		changing the fields you added.
+		
+		does this mean a new tree or something similiar and save all processes there?
+		
+		Notice that the default behavior of existing system calls such as fork and execv
+		regarding the new process weight field is exactly the behavior that is required from
+		you in this homework.
+		
+		so does this mean that we do not need to change fork.c?
+		
+		Check out the macros list_for_each and list_entry from
+		include/linux/list.h. They could be useful.
+		
+	

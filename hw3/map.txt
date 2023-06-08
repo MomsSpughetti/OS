@@ -1,0 +1,96 @@
+Mission part 1: Multi-threded web-server
+
+Idea:
+	Master thread and workers threads.
+	Master gets the request, adds it to the queue* and proceeds to accept more connections.
+	If there are waiting worker thread, it will handle the request - gets the result and returns it as specified in
+	the connection descreptor.
+	
+	there is a limited amount of workers, will be initialized at the start of the server.
+	connection descriptor size is also limited.
+	previous two are specified in the command line!
+	
+	*queue for requests being handled and queue for waiting requests.
+	
+	use condition variables!
+	
+	Make sure that the worker thread does not block the other threads while handling
+	its request!
+	waiting workers are a blocked threads!
+	
+	notes:
+		the parent process in the web server explicitly waits for the child CGI process to
+		complete before continuing and accepting more http requests. For the first part, you
+		should not modify this section of the code.
+		
+		
+		
+		
+	Idea for workers:
+		workingQ - two wrapper function - WorkDequeue an WorkEnqueue
+		WaitingQ - two wrapper function - WaitDequeue an WaitEnqueue
+		
+		workingCount
+		WaitingCount
+		
+		let's suppose for simplicity that we have one queueForWorking:
+			
+			mutex queueAccess
+			mutex 
+			requestsMaxCount
+			workersMaxCount
+			
+			requestsCurrCount
+			workersCurrCount
+			
+			
+			when enqueue:
+				if workersCurrCount < workersMaxCount:
+					requestHandle(get (and remove) The Connection Descriptor From The Requests
+					Queue - single mutex there)
+					workersCurrCount++
+				else:
+					cond_wait
+
+			when dequeue:
+				#means a worker finished
+				send signal (broadcast)
+				
+					
+---------------------------------------------------------------------------------------
+Mission part 2: Overload Handling
+
+---------------------------------------------------------------------------------------
+Mission part 3: Usage Statistics
+	All requests (including errors) increment the request counter.
+	valid static requests increment the static counter.
+	valid dynamic requests increment the dynamic counter
+	501, 403 and 404 errors do not increment the dynamic/static counters
+	
+	
+---------------------------------------------------------------------------------------
+Invoking format:
+./server [portnum] [threads] [queue_size] [schedalg] [max_size(optional)]
+---------------------------------------------------------------------------------------
+	
+	
+See page 11 for more info
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
