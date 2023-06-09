@@ -23,8 +23,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-
+#include <stdbool.h>
 
 /* Default file permissions are DEF_MODE & ~DEF_UMASK */
 /* $begin createmasks */
@@ -122,11 +121,28 @@ int open_listenfd(int portno);
 /* Wrappers for client/server helper functions */
 int Open_clientfd(char *hostname, int port);
 int Open_listenfd(int port);
-/*****************************************************************/
 
 typedef enum QueueStatus{FAILED,SUCCESS,MALLOC_FAIL,NULL_ARG} QueueStatus;
 
-typedef int T;
+typedef struct threadInfo{
+    pthread_t* thisThread;
+    int id;
+    int count;
+    int staticCount;
+    int dynamicCount;
+}threadInfo;
+
+
+
+typedef struct requestInfo{
+    struct threadInfo* thread;
+    int fd;
+    struct timeval arrivingTime;
+    struct timeval startingTime;
+}requestInfo;
+
+
+typedef requestInfo T;
 
 typedef struct Node{
     T data;
@@ -143,10 +159,11 @@ typedef struct Queue{
 Queue* initQueue();
 QueueStatus _push(Queue* queue,T val);
 T _pop(Queue* queue);
+T _popBack(Queue* queue);
 QueueStatus destroyQueue(Queue* queue);
 QueueStatus _deleteNode(Queue* queue,T fd);
 
-T pop(Queue* queue,pthread_cond_t* c, pthread_mutex_t* m, int* condVar);
+T pop(Queue* queue,pthread_cond_t* c, pthread_mutex_t* m, int* condVar, pthread_cond_t* empty, pthread_cond_t* full);
 QueueStatus push(Queue* queue,T val,pthread_cond_t* c, pthread_mutex_t* m, int* condVar);
-QueueStatus deleteNode(Queue* queue,T fd,pthread_cond_t* c, pthread_mutex_t* m, int* condVar);
+QueueStatus deleteNode(Queue* queue,T fd,pthread_cond_t* c, pthread_mutex_t* m, int* condVar,pthread_cond_t* empty, pthread_cond_t* full);
 #endif /* __CSAPP_H__ */
