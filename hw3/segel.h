@@ -162,7 +162,7 @@ T _pop(Queue* queue);
 T _popBack(Queue* queue);
 QueueStatus destroyQueue(Queue* queue);
 QueueStatus _deleteNode(Queue* queue,T fd);
-
+T removeNode(Queue* queue,Node* node);
 T pop(Queue* queue,pthread_cond_t* c, pthread_mutex_t* m, int* condVar, pthread_cond_t* empty, pthread_cond_t* full);
 QueueStatus push(Queue* queue,T val,pthread_cond_t* c, pthread_mutex_t* m, int* condVar);
 QueueStatus deleteNode(Queue* queue,T fd,pthread_cond_t* c, pthread_mutex_t* m, int* condVar,pthread_cond_t* empty, pthread_cond_t* full);

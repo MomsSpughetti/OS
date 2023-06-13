@@ -68,6 +68,35 @@ T _pop(Queue* queue){
     return val;
 }
 
+T removeNode(Queue* queue, Node* node){
+    if(queue == NULL || queue->size ==0 || node == NULL){
+        return errorValue();
+    }
+    T result = node->data;
+    if(node->prev ==NULL){//first
+        if(node->next ==NULL){//and last
+            queue->head = queue->last = NULL;
+        }else{
+            node->next->prev = NULL;
+            queue->head = node->next;
+        }
+    }else{//last
+        if(node->next ==NULL){
+            if(node->prev ==NULL){//and last
+                queue->head = queue->last = NULL;
+            }else{
+                node->prev->next = NULL;
+                queue->last = node->prev;
+            }
+        }else{
+            node->next->prev =node->prev;
+            node->prev->next = node->next;
+        }
+    }
+    queue->size--;
+    free(node);
+    return result;
+}
 
 T _popBack(Queue* queue){
     if(queue == NULL){
@@ -136,6 +165,7 @@ QueueStatus _deleteNode(Queue* queue,T data){
 
 QueueStatus push(Queue* queue,T val,pthread_cond_t* c, pthread_mutex_t* m, int* condVar){
     if(queue == NULL || c == NULL || m == NULL || condVar == NULL){
+        printf("\nNULL\n");
         return NULL_ARG;
     }
     pthread_mutex_lock(m);
@@ -184,9 +214,17 @@ QueueStatus deleteNode(Queue* queue,T fd,pthread_cond_t* c, pthread_mutex_t* m, 
     while(*condVar == 0) pthread_cond_wait(c,m);
     _deleteNode(queue,fd);
     (*condVar)--;
+ //   printf("section 1\n");
     pthread_cond_signal(full);
-    if(*condVar == 0) pthread_cond_signal(empty);
+  //  printf("section 2\n");
+    if(*condVar == 0){
+   //     printf("section 3\n");
+        pthread_cond_signal(empty);
+    //    printf("section 4\n");
+    }
+  //  printf("Trying to Unlock\n");
     pthread_mutex_unlock(m);
+  //  printf("Unlocked\n");
     return SUCCESS;
 }
 
@@ -373,7 +411,7 @@ void Munmap(void *start, size_t length)
         unix_error("munmap error");
 }
 
-/****************************
+/**************************** 
  * Sockets interface wrappers
  ****************************/
 
@@ -428,7 +466,7 @@ void Connect(int sockfd, struct sockaddr *serv_addr, int addrlen)
 }
 
 /************************
- * DNS interface wrappers
+ * DNS interface wrappers 
  ***********************/
 
 /* $begin gethostbyname */
@@ -505,7 +543,7 @@ ssize_t rio_writen(int fd, void *usrbuf, size_t n)
 /* $end rio_writen */
 
 
-/*
+/* 
  * rio_read - This is a wrapper for the Unix read() function that
  *    transfers min(n, rio_cnt) bytes from an internal buffer to a user
  *    buffer, where n is the number of bytes requested by the user and
@@ -580,7 +618,7 @@ ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n)
 }
 /* $end rio_readnb */
 
-/*
+/* 
  * rio_readlineb - robustly read a text line (buffered)
  */
 /* $begin rio_readlineb */
@@ -648,13 +686,13 @@ ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
     return rc;
 }
 
-/********************************
+/******************************** 
  * Client/server helper functions
  ********************************/
 /*
- * open_clientfd - open connection to server at <hostname, port>
+ * open_clientfd - open connection to server at <hostname, port> 
  *   and return a socket descriptor ready for reading and writing.
- *   Returns -1 and sets errno on Unix error.
+ *   Returns -1 and sets errno on Unix error. 
  *   Returns -2 and sets h_errno on DNS (gethostbyname) error.
  */
 /* $begin open_clientfd */
@@ -683,7 +721,7 @@ int open_clientfd(char *hostname, int port)
 }
 /* $end open_clientfd */
 
-/*
+/*  
  * open_listenfd - open and return a listening socket on port
  *     Returns -1 and sets errno on Unix error.
  */
@@ -727,7 +765,7 @@ int open_listenfd(int port)
 /* $end open_listenfd */
 
 /******************************************
- * Wrappers for the client/server helper routines
+ * Wrappers for the client/server helper routines 
  ******************************************/
 int Open_clientfd(char *hostname, int port)
 {

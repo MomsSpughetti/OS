@@ -17,23 +17,23 @@
 
 
 
-#define POP_WAITING_QUEUE pop(waitingQueue,&waitingCond,&waitingQueueLock,&waitingQueueSize,&emptyCond, &fullCond)
-#define POP_WORKING_QUEUE pop(workingQueue,&workingCond,&workingQueueLock,&workingQueueSize, &canPush)
+#define POP_WAITING_QUEUE pop(waitingQueue,&waitingCond,&global,&waitingQueueSize,&emptyCond, &fullCond)
+#define POP_WORKING_QUEUE pop(workingQueue,&workingCond,&global,&workingQueueSize, &canPush)
 
-#define PUSH_WAITING_QUEUE(connfd) push(waitingQueue,(connfd),&waitingCond,&waitingQueueLock,&waitingQueueSize)
-#define PUSH_WORKING_QUEUE(connfd) push(workingQueue,(connfd),&workingCond,&workingQueueLock,&workingQueueSize)
+#define PUSH_WAITING_QUEUE(connfd) push(waitingQueue,(connfd),&waitingCond,&global,&waitingQueueSize)
+#define PUSH_WORKING_QUEUE(connfd) push(workingQueue,(connfd),&workingCond,&global,&workingQueueSize)
 
-#define DELETE_NODE_WAITING_QUEUE(connfd) deleteNode(waitingQueue,(connfd),&waitingCond,&waitingQueueLock,&waitingQueueSize)
-#define DELETE_NODE_WORKING_QUEUE(connfd) deleteNode(workingQueue, (connfd) ,&workingCond,&workingQueueLock,&workingQueueSize,&emptyCond, &fullCond)
+#define DELETE_NODE_WAITING_QUEUE(connfd) deleteNode(waitingQueue,(connfd),&waitingCond,&global,&waitingQueueSize)
+#define DELETE_NODE_WORKING_QUEUE(connfd) deleteNode(workingQueue, (connfd) ,&workingCond,&global,&workingQueueSize,&emptyCond, &fullCond)
 
-
+#define MICRO_TO_SEC 1000000
 
 
 
 //Global Vars
-pthread_mutex_t waitingQueueLock = PTHREAD_MUTEX_INITIALIZER,workingQueueLock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t global = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t waitingCond =PTHREAD_COND_INITIALIZER,workingCond = PTHREAD_COND_INITIALIZER
-, fullCond =PTHREAD_COND_INITIALIZER, emptyCond =PTHREAD_COND_INITIALIZER;
+        , fullCond =PTHREAD_COND_INITIALIZER, emptyCond =PTHREAD_COND_INITIALIZER;
 int waitingQueueSize = 0,workingQueueSize =0;
 Queue* waitingQueue = NULL;
 Queue* workingQueue = NULL;
@@ -42,72 +42,31 @@ void* requestHandlerWorker(void* args){
     //printf("Waiting for a new requseet\n");
     while(1){
         threadInfo* thread = (threadInfo*)args;
+        //printf("Push Node from working Queue\n");
         requestInfo request = POP_WAITING_QUEUE;
         struct timezone t;
         gettimeofday(&request.startingTime,&t);
+        long t1 =  request.startingTime.tv_sec*MICRO_TO_SEC +  request.startingTime.tv_usec;
+        long t2  =  request.arrivingTime.tv_sec*MICRO_TO_SEC +  request.arrivingTime.tv_usec;
+        long delta = t1-t2;
+        request.startingTime.tv_sec = delta/MICRO_TO_SEC;
+        request.startingTime.tv_usec = delta % MICRO_TO_SEC;
         request.thread = thread;
+      //  printf("Push Node from working Queue\n");
         PUSH_WORKING_QUEUE(request);
         requestHandle(request);
+        //printf("Removing Node from working Queue\n");
         DELETE_NODE_WORKING_QUEUE(request);
         Close(request.fd);
     }
     return NULL;
 }
 
-void merge(int arr[], int left[], int leftSize, int right[], int rightSize) {
-    int i = 0; // Index for left subarray
-    int j = 0; // Index for right subarray
-    int k = 0; // Index for merged array
-
-    while (i < leftSize && j < rightSize) {
-        if (left[i] <= right[j]) {
-            arr[k] = left[i];
-            i++;
-        } else {
-            arr[k] = right[j];
-            j++;
-        }
-        k++;
+int cmp(const void* x, const void* y){
+    if(*(int*)x > *(int*)y){
+        return 1;
     }
-
-    // Copy the remaining elements of left[], if any
-    while (i < leftSize) {
-        arr[k] = left[i];
-        i++;
-        k++;
-    }
-
-    // Copy the remaining elements of right[], if any
-    while (j < rightSize) {
-        arr[k] = right[j];
-        j++;
-        k++;
-    }
-}
-
-void mergeSort(int arr[], int size) {
-    if (size < 2) {
-        return; // Base case: Array of size 1 is already sorted
-    }
-
-    int mid = size / 2;
-    int left[mid];
-    int right[size - mid];
-
-    // Split the array into left and right subarrays
-    for (int i = 0; i < mid; i++) {
-        left[i] = arr[i];
-    }
-    for (int i = mid; i < size; i++) {
-        right[i - mid] = arr[i];
-    }
-
-    // Recursively sort the left and right subarrays
-    mergeSort(left, mid);
-    mergeSort(right, size - mid);
-
-    // Merge the sorted subarrays
-    merge(arr, left, mid, right, size - mid);
+    return -1;
 }
 
 int getHalf(int x){
@@ -115,63 +74,61 @@ int getHalf(int x){
     return x/2 +a;
 }
 
-void dropRandom(int *wqSizePtr){
-    int wqSize = *wqSizePtr;
-    int half = getHalf(wqSize);
+void dropRandom(){
+    printf("Im here\n");
+    int half = getHalf(waitingQueueSize);
     int *toDrop =(int*)malloc(sizeof(int)*half);
-    int *used = (int*)malloc(sizeof(int)*(wqSize));
-
+    bool *used = (bool*)malloc(sizeof(bool)*(waitingQueueSize));
+    for(int i=0;i<waitingQueueSize;++i){
+        used[i]=false;
+    }
     //choose who to delete randomly
     for (int i = 0; i < half; i++)
     {
-        toDrop[i] = rand() % wqSize;
-        while(used[toDrop[i]]==1)
-            toDrop[i] = rand() % wqSize;
-        used[toDrop[i]] = 1;
+        toDrop[i] = rand() % waitingQueueSize;
+        while(used[toDrop[i]])
+            toDrop[i] = rand() % waitingQueueSize;
+        used[toDrop[i]] = true;
     }
 
-    mergeSort(toDrop, half);
-    Node *curr = waitingQueue->head, *tmp; // will the queue be initialized before? if not then it's segmentation fault
+    qsort(toDrop,half,sizeof(int),cmp);
+    for(int i=0;i<half;++i){
+        printf("%d,",toDrop[i]);
+    }
+    printf("\n");
     int waitingQueueIndex = 0;
     int toDropIndex = 0;
-
+    requestInfo request;
 //delete half of the wq
-    if(toDrop[0]==0){
-        _pop(waitingQueue);
-        waitingQueueIndex++;
-        toDropIndex++;
-        curr = curr->next;
-    }
+    Node *curr = waitingQueue->head,*temp;
     while (curr != waitingQueue->last)
     {
         if(toDrop[toDropIndex] == waitingQueueIndex){
-            tmp = curr;
-            curr->prev->next = curr->next;
-            curr->next->prev = curr->prev;
-            free(tmp);
+            temp = curr;
+            curr= curr->next;
+            request = removeNode(waitingQueue,temp);
+            Close(request.fd);
             toDropIndex++;
             waitingQueue->size--;
+        }else{
+            curr = curr->next;
         }
         waitingQueueIndex++;
-        curr = curr->next;
     }
-    if(toDrop[half-1]==wqSize){
-        _popBack(waitingQueue);
-    }
-    *wqSizePtr = half; //update wq size
+    waitingQueueSize -= half; //update wq size
+    free(toDrop);
+    free(used);
 }
 
 void addRequest(int* queueSizePtr,char* policy, int maxQueueSize, requestInfo newRequest) {
-    pthread_mutex_lock(&waitingQueueLock);
-    pthread_mutex_lock(&workingQueueLock);
+    pthread_mutex_lock(&global);
     bool ignore = false;
     int queueSize = *queueSizePtr;
-    printf("%d\n", waitingQueueSize + workingQueueSize);
     if(strcmp(policy,"block") == 0){
-        printf("\nStuck...\n");
         while(waitingQueueSize + workingQueueSize >= queueSize) {
-            printf("%d\n", waitingQueueSize + workingQueueSize);
-            pthread_cond_wait(&fullCond, &waitingQueueLock);
+          //  printf("\n stuck...\n");
+            pthread_cond_wait(&fullCond, &global);
+           // printf("\n after wait...\n");
         }
     }
     if(strcmp(policy,"dt") == 0){
@@ -187,8 +144,9 @@ void addRequest(int* queueSizePtr,char* policy, int maxQueueSize, requestInfo ne
     }
     if(strcmp(policy,"bf") == 0){
         while(waitingQueueSize + workingQueueSize >= queueSize) {
+            ignore = true;
             while(waitingQueueSize + workingQueueSize !=0){
-                pthread_cond_wait(&emptyCond, &waitingQueueLock);
+                pthread_cond_wait(&emptyCond, &global);
             }
         }
     }
@@ -199,8 +157,8 @@ void addRequest(int* queueSizePtr,char* policy, int maxQueueSize, requestInfo ne
         }
     }
     if(strcmp(policy,"random") == 0) {
-        if((waitingQueueSize + workingQueueSize == queueSize)){
-            dropRandom(&waitingQueueSize);
+        if((waitingQueueSize + workingQueueSize >= queueSize)){
+            dropRandom();
         }
     }
     if(!ignore) {
@@ -210,8 +168,7 @@ void addRequest(int* queueSizePtr,char* policy, int maxQueueSize, requestInfo ne
     }else{
         Close(newRequest.fd);
     }
-    pthread_mutex_unlock(&workingQueueLock);
-    pthread_mutex_unlock(&waitingQueueLock);
+    pthread_mutex_unlock(&global);
 }
 
 
