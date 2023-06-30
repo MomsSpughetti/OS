@@ -14,16 +14,16 @@ double spinfor = 5.0;
 
 void getargs()
 {
-  char *buf, *p;
+    char *buf, *p;
 
-  /* Extract the four arguments */
-  if ((buf = getenv("QUERY_STRING")) != NULL) {
-    p = strtok(buf, "&");
-    if (p == NULL) 
-      return;
-    spinfor = atof(p);
-    return;
-  }
+    /* Extract the four arguments */
+    if ((buf = getenv("QUERY_STRING")) != NULL) {
+        p = strtok(buf, "&");
+        if (p == NULL)
+            return;
+        spinfor = atof(p);
+        return;
+    }
 }
 
 double Time_GetSeconds() {
@@ -36,25 +36,25 @@ double Time_GetSeconds() {
 
 int main(int argc, char *argv[])
 {
-  char content[MAXBUF];
+    char content[MAXBUF];
 
-  getargs();
+    getargs();
 
-  double t1 = Time_GetSeconds();
-  usleep(spinfor * 1e6);
-  double t2 = Time_GetSeconds();
+    double t1 = Time_GetSeconds();
+    usleep(spinfor * 1e6);
+    double t2 = Time_GetSeconds();
 
-  /* Make the response body */
-  sprintf(content, "<p>Welcome to the CGI program</p>\r\n");
-  sprintf(content, "%s<p>My only purpose is to waste time on the server!</p>\r\n", content);
-  sprintf(content, "%s<p>I spun for %.2f seconds</p>\r\n", content, t2 - t1);
-  
-  /* Generate the HTTP response */
-  printf("Content-length: %lu\r\n", strlen(content));
-  printf("Content-type: text/html\r\n\r\n");
-  printf("%s", content);
-  fflush(stdout);
+    /* Make the response body */
+    sprintf(content, "<p>Welcome to the CGI program</p>\r\n");
+    sprintf(content, "%s<p>My only purpose is to waste time on the server!</p>\r\n", content);
+    sprintf(content, "%s<p>I spun for %.2f seconds</p>\r\n", content, t2 - t1);
 
-  exit(0);
+    /* Generate the HTTP response */
+    printf("Content-length: %lu\r\n", strlen(content));
+    printf("Content-type: text/html\r\n\r\n");
+    printf("%s", content);
+    fflush(stdout);
+
+    exit(0);
 }
 
