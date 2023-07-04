@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <math.h>
+
+MallocMetadata* malloc_meta_head = NULL;
+memoryInfo mm_info{0,0,0,0};
 
 typedef struct MallocMetadata
 {
@@ -21,8 +23,6 @@ typedef struct memoryInfo
     size_t totaBytes;
 } memoryInfo;
 
-MallocMetadata* malloc_meta_head = NULL;
-memoryInfo mm_info{0,0,0,0};
 
 void _removeMetaListTail(){
     MallocMetadata* curr = malloc_meta_head;
@@ -77,7 +77,7 @@ void _insertToMetaList(MallocMetadata* newMetaData){
 void* _allocNew(size_t size){
 
     //try to allocoate -size- bytes
-    void* status_meta = sbrk(sizeof(MallocMetadata));
+    void* status_meta = sbrk(sizeof(malloc_meta_head));
 
     if(status_meta == reinterpret_cast<void*>(-1)){ //why not (void*)(-1)
         //sbrk() fails
@@ -105,8 +105,8 @@ void* _allocNew(size_t size){
 void* smalloc(size_t size){
 
     //Failure
-    //size == 0 || size > (pow(10,8))
-    if (size == 0 || size > pow(10,8))
+    //size == 0 || size > 10^8
+    if (size == 0 || size > 10^8)
     {
         return nullptr;
     }
@@ -121,10 +121,8 @@ void* smalloc(size_t size){
         if (target->is_free && target->size >= size)
         {
             //return (void*)(target + sizeof(MallocMetadata));
-            target->is_free = false;
+            target->is_free = true;
             target->size = size;
-            mm_info.freeBlocksCount--;
-            mm_info.totalFreeBytes-=size;
             return _getEffectiveSpaceAddr(target);
             /*
             why casting to char*:
@@ -140,8 +138,8 @@ void* smalloc(size_t size){
 
 void* scalloc(size_t num, size_t size){
     //Failure
-    //size == 0 || size > pow(10,8)
-    if (size*num == 0 || num*size > pow(10,8))
+    //size == 0 || size > 10^8
+    if (size == 0 || size > 10^8)
     {
         return nullptr;
     }
@@ -152,14 +150,12 @@ void* scalloc(size_t num, size_t size){
         //if free
         //and size is enough
         //get a pointer for the effective space
-        if (target->is_free && num * target->size >= (num*size))
+        if (target->is_free && target->size >= size)
         {
             //return (void*)(target + sizeof(MallocMetadata));
-            target->is_free = false;
-            target->size = size*num;
-            mm_info.freeBlocksCount--;
-            mm_info.totalFreeBytes-=(num*size);
-            std::memset(_getEffectiveSpaceAddr(target), 0, (num * size)); //should I do this? or check if they are zeros
+            target->is_free = true;
+            target->size = size;
+            std::memset(_getEffectiveSpaceAddr(target), 0, target->size); //should I do this? or check if they are zeros
             return _getEffectiveSpaceAddr(target);
             /*
             why casting to char*:
@@ -172,6 +168,11 @@ void* scalloc(size_t num, size_t size){
     void* newAlloc = _allocNew(num*size);
     std::memset(newAlloc, 0, num*size);
     return newAlloc;
+}
+
+/*Merge function*/
+void _merge(MallocMetadata* metaData){
+
 }
 
 void sfree(void* p){
@@ -193,18 +194,13 @@ void sfree(void* p){
 
 void* srealloc(void* oldp, size_t size){
     //Failure
-    //size == 0 || size > pow(10,8)
-    if (size == 0 || size > pow(10,8))
+    //size == 0 || size > 10^8
+    if (size == 0 || size > 10^8)
     {
         return nullptr;
     }
-
-    if(oldp == nullptr){
-        return _allocNew(size);
-    }
-
     MallocMetadata* metaDataPtr = (MallocMetadata*)_getMetaDataAddr(oldp);
-    if (!metaDataPtr->is_free && metaDataPtr->size >= size)
+    if (metaDataPtr->is_free && metaDataPtr->size >= size)
     {
         std::memmove(_getEffectiveSpaceAddr(metaDataPtr), oldp, size);
         return _getEffectiveSpaceAddr(metaDataPtr);
@@ -217,8 +213,6 @@ void* srealloc(void* oldp, size_t size){
     mm_info.totalFreeBytes += metaDataPtr->size;
     //use smalloc
     void* newAlloc = smalloc(size);
-    std::memmove(newAlloc, oldp, size);
-    return newAlloc;
 }
 
 size_t _num_free_blocks(){
@@ -241,5 +235,5 @@ size_t _num_meta_data_bytes(){
     return _getTotalMetaBytes();
 }
 size_t _size_meta_data(){
-    return (size_t)sizeof(MallocMetadata);
+    return sizeof(MallocMetadata);
 }

@@ -1,0 +1,32 @@
+
+
+for part 3:
+	in sfree():
+		when size > 128KiB use mmap()
+	add merge that sfree() uses
+	
+	how to know if this block is a buddy?
+		(1) use the trick:
+			x = sbrk(0) -> get the current break address
+			sbrk(x ???)
+		(2) to know for a block x who is his buddy:
+			x.size == x.prev.size && x.prev.is_free => prev is his buddy
+			x.size == x.next.size && x.next.is_free => next is his buddy
+			else no need to merge (buddy not free)
+			because there can not be two free related buddies since sfree() uses merge()
+	
+	tasks:
+		add new structure
+		write merge function
+		update smalloc:
+			use mmap() when >128KiB
+			use the existing blocks instead
+			if <128KiB & no suitable block in heap -> sbrk(+)
+		update srealloc:
+		update functions 5-10
+		
+		
+		
+		
+sudo mkdir /mnt/hgfs
+sudo /usr/bin/vmhgfs-fuse .host:/ /mnt/hgfs -o subtype=vmhgfs-fuse,allow_other
